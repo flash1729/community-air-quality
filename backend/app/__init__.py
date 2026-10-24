@@ -1,0 +1,1 @@
+"""Community Air Quality API."""
