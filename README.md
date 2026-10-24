@@ -2,7 +2,7 @@
 
 Local air-quality dashboard for a cloud computing project. People can search a city, see station readings, an Indian AQI when CPCB inputs are valid, compare cities, filter history, download a CSV, and view a model forecast that stays separate from station data.
 
-The app is at **stage 3** locally: popular cities have a separate refresh command, and a dashboard opens stored readings until the cache window expires. Google Cloud is the selected host. It is not deployed yet. Cloud SQL stays off until its price is confirmed.
+The public site is https://community-air-quality.vercel.app. The API runs on Cloud Run in `us-central1` and scales to zero when nobody is using it. Cloud SQL stays off. There is no always-free Cloud SQL allowance, so the database remains SQLite inside the API container.
 
 ## Run it locally
 
@@ -95,19 +95,24 @@ Pune includes a “School Campus” station that has no particulate data, so its
 
 ## Cloud shape
 
-The same code is what a free-tier deployment would run. Only configuration changes.
+Google Cloud hosts the API. Vercel hosts the website. The browser talks to Vercel, and the Next.js server calls Cloud Run. Pages opened in India therefore use Vercel’s free bandwidth. Cloud Run’s free outbound gigabyte stays on the path from Iowa to Vercel in North America.
 
-| Concern | In this repo | Cloud equivalent, after a quota check |
-| --- | --- | --- |
-| Web compute | FastAPI and Next.js containers | Cloud Run. Google Cloud is selected and not deployed yet |
-| Scheduled compute | `python -m app.jobs.refresh_popular` | A separate Cloud Run job, started by Cloud Scheduler |
-| Database | SQLite file locally | PostgreSQL only if a free allowance exists |
-| Cache | `measurements`, `forecasts`, `cache_entries` | Same tables. Repeat reads do not call the provider |
-| Secrets | `.env`, ignored by git | Secret Manager or Secrets Manager, after checking price |
-| Health | `/api/v1/health`, `/api/v1/metrics` | Uptime check and logs |
-| Delivery | `.github/workflows/ci.yml` | Test on every push. Deploy is not wired yet |
+| Concern | What is running |
+| --- | --- |
+| Website | Vercel project `community-air-quality`, root directory `frontend`, HTTPS |
+| API compute | Cloud Run service `community-air-api` in `us-central1`. Minimum instances 0, maximum 1, 1 vCPU, 512 MiB, request-based billing |
+| Image build | Cloud Build, image stored in Artifact Registry |
+| Scheduled compute | Cloud Scheduler job `refresh-popular`, once a day at 02:30 Asia/Kolkata. It sends `POST /api/v1/jobs/refresh-popular` to this same API. The token is `SCHEDULER_TOKEN` in Secret Manager |
+| On-demand compute | Any other city, and a popular city with no live readings yet, is fetched when its dashboard is opened |
+| Database | SQLite at `/app/data/airquality.db` inside the API container. The file is created on startup and removed when the instance scales to zero |
+| Cache | `measurements`, `forecasts`, and `cache_entries`. A fresh dashboard read does not call OpenAQ |
+| Secrets | `openaq-api-key` and `scheduler-token` in Secret Manager. The repository only has `.env.example` |
+| Monitoring | Cloud Run logs, `GET /api/v1/health`, `GET /api/v1/metrics`, and one Cloud Monitoring uptime check on `/api/v1/health` every 15 minutes |
+| Delivery | GitHub Actions runs the backend tests and the frontend build. The API deploy is a `gcloud run deploy` from this repository |
 
-The API process does not keep request state. Google Cloud is the one provider for this project. Leave the load balancer, NAT gateway, and queue out unless a later deployment actually needs one. The cost target is $0 inside verified free-tier limits, and that is a target, not a guarantee.
+The API process does not keep request state. Load balancer, NAT gateway, Cloud SQL, and a queue are not part of this deployment. The cost target is ₹0 inside the free allowances: Cloud Run’s monthly request and CPU allowance, one of the three free Cloud Scheduler jobs, six free Secret Manager versions, 0.5 GB of Artifact Registry, 1 million free uptime-check executions, and Vercel’s Hobby plan. Passing a Vercel cap pauses that feature. Passing a Google cap can bill, and the project budget alert is set at ₹0.
+
+Cloud Run’s disk does not survive scale-to-zero. After the instance sleeps, the next visit loads the sample set and then fetches live stations again. The daily job fills the database only for the life of that instance. A separate Cloud Run job was not used, because it would write a database file the website cannot read.
 
 ## AQI rules in this version
 
@@ -135,4 +140,4 @@ The database file is created at `backend/data/airquality.db` on first launch. De
 
 ## Still ahead
 
-Cloud deployment itself: choose AWS or GCP after checking current free-tier rules, put the database on persistent storage, store the OpenAQ key in the provider’s secret store, run the popular-city job on a schedule, and serve the site over HTTPS. That is stage 4, and it stays inside one provider’s verified free allowance.
+A database that survives scale-to-zero, without turning on Cloud SQL. GitHub Actions does not deploy the API yet. Both can wait until a free persistent disk is confirmed.

@@ -40,7 +40,7 @@ def metrics(db=Depends(get_db)):
         ],
         note=(
             "The API process is stateless. Stored measurements, forecasts, and cache_entries "
-            "are the shared cache. The popular-city job is a separate process and does not "
-            "refresh on-demand cities."
+            "are the shared cache. Cloud Scheduler refreshes popular cities through "
+            "POST /api/v1/jobs/refresh-popular. Other cities stay on demand."
         ),
     )

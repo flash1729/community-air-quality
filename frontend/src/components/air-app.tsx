@@ -73,6 +73,7 @@ export function AirApp({ view }: { view: View }) {
   const [pollutant, setPollutant] = useState("pm25");
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fallbackTried = useRef(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -124,13 +125,22 @@ export function AirApp({ view }: { view: View }) {
         return (await response.json()) as Overview;
       })
       .then((body) => {
+        fallbackTried.current = false;
         setOverview(body);
         setLoading(false);
       })
       .catch((err: Error) => {
         if (err.name === "AbortError") return;
+        if (!fallbackTried.current && locationId !== 1) {
+          fallbackTried.current = true;
+          window.localStorage.removeItem(STORAGE_KEY);
+          setNotice("That city could not be loaded, so the dashboard opened New Delhi.");
+          setLocationId(1);
+          setLoading(false);
+          return;
+        }
         setLoading(false);
-        setError("The dashboard could not load this location. Check that the API is running on port 8000.");
+        setError("The dashboard could not load this city.");
       });
     return () => controller.abort();
   }, [locationId]);
@@ -598,7 +608,7 @@ function DashboardBody({
               <Segmented label="Pollutant" value={pollutant} onChange={onPollutant} options={POLLUTANTS} formula />
             </SectionHeading>
             <div className="mt-5">
-              <TrendChart rows={chartRows} pollutantName={pollutantName} unit={pollutantUnit} />
+              <TrendChart key={pollutant} rows={chartRows} pollutantName={pollutantName} unit={pollutantUnit} />
             </div>
             <p className="mt-3 text-xs leading-5 text-muted">
               {overview.history.station_name ? `Station: ${overview.history.station_name}. ` : ""}

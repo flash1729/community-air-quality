@@ -26,7 +26,7 @@ from app.schemas import (
 )
 from app.services.cache import provider_fetch_is_fresh, remember_provider_fetch, schedule_provider_refresh
 from app.services.ingest import refresh_location
-from app.timeutils import as_utc, db_time, utcnow
+from app.timeutils import as_utc, db_time, hour_floor, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +162,8 @@ def build_overview(
     refresh_failed = False
     now = utcnow()
     if openaq is not None and _should_fetch(session, location.id, settings, now, refresh_when_stale):
-        has_readings = _measurement_count(session, location.id) > 0
-        if has_readings and refresh_when_stale:
+        has_live = _has_live_readings(session, location.id)
+        if has_live and refresh_when_stale:
             if schedule_provider_refresh(session, location.id, settings):
                 warnings.append("Stored readings are on screen while a newer fetch runs in the background.")
         else:
@@ -240,6 +240,16 @@ def location_stations(session: Session, location_id: int) -> list[StationOut] | 
     stations = _prefer_live_stations(stations, loaded)
     now = utcnow()
     return [_station_out(session, station, loaded[station.id], now) for station in stations]
+
+
+def _has_live_readings(session: Session, location_id: int) -> bool:
+    count = session.scalar(
+        select(func.count(Measurement.id))
+        .join(Sensor, Sensor.id == Measurement.sensor_id)
+        .join(Station, Station.id == Sensor.station_id)
+        .where(Station.location_id == location_id, Station.provider == "openaq")
+    )
+    return bool(count)
 
 
 def _measurement_count(session: Session, location_id: int) -> int:
@@ -461,14 +471,9 @@ def _history(location_id: int, station: Station | None, series: Series, hours: i
     points: list[HistoryPointOut] = []
     for offset in range(hours - 1, -1, -1):
         moment = end - timedelta(hours=offset)
-        pollutants: dict[str, float | None] = {}
-        for parameter in CARD_PARAMETERS:
-            match = [
-                value
-                for measured_at, value in values.get(parameter, [])
-                if as_utc(measured_at) == moment
-            ]
-            pollutants[parameter] = round(match[-1], 3) if match else None
+        pollutants = {
+            parameter: value_at_hour(values.get(parameter, []), moment) for parameter in CARD_PARAMETERS
+        }
         result = calculate_aqi(averages_at(values, moment))
         points.append(
             HistoryPointOut(
@@ -489,6 +494,19 @@ def _history(location_id: int, station: Station | None, series: Series, hours: i
             "calculation and stays empty until coverage rules are met. Gaps are not filled."
         ),
     )
+
+
+def value_at_hour(points: list[tuple], moment) -> float | None:
+    """Use the latest observation that falls inside the chart hour.
+
+    Several Indian monitors publish the hour at minute 30. An exact timestamp
+    match then leaves every pollutant empty while the rolling AQI still draws.
+    """
+    hour = hour_floor(moment)
+    matched = [value for measured_at, value in points if hour_floor(measured_at) == hour]
+    if not matched:
+        return None
+    return round(matched[-1], 3)
 
 
 def _latest_timestamp(series: Series):

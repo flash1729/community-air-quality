@@ -132,6 +132,36 @@ def test_live_ingest_stores_once_and_deduplicates(api):
         session.close()
 
 
+def test_popular_refresh_route_checks_the_scheduler_token(api, monkeypatch):
+    client, _application = api
+    from app.config import get_settings
+
+    monkeypatch.setenv("SCHEDULER_TOKEN", "schedule-secret")
+    get_settings.cache_clear()
+    denied = client.post("/api/v1/jobs/refresh-popular")
+    assert denied.status_code == 401
+
+    class Http:
+        def close(self):
+            return None
+
+    monkeypatch.setattr(
+        "app.routers.jobs.open_clients",
+        lambda settings: (Http(), None, None),
+    )
+    monkeypatch.setattr(
+        "app.routers.jobs.refresh_popular_cities",
+        lambda session, openaq, weather: [{"id": 1, "name": "New Delhi", "status": "success"}],
+    )
+    accepted = client.post(
+        "/api/v1/jobs/refresh-popular",
+        headers={"X-Scheduler-Token": "schedule-secret"},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["refreshed"] == 1
+    get_settings.cache_clear()
+
+
 def test_refresh_without_a_key_keeps_stored_data(api):
     _client, application = api
     session = application.state.session_factory()

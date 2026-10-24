@@ -457,3 +457,12 @@ def test_provider_failure_keeps_the_stored_reading_and_marks_it_stale(api, monke
     assert kept["value"] == 11
     assert calls["count"] == 1
 
+
+def test_half_hour_reading_lands_on_the_chart_hour():
+    from app.services.dashboard import value_at_hour
+
+    hour = datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)
+    points = [(datetime(2026, 11, 11, 12, 30, tzinfo=timezone.utc), 41.2)]
+    assert value_at_hour(points, hour) == 41.2
+    assert value_at_hour(points, hour.replace(hour=11)) is None
+

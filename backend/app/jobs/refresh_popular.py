@@ -4,9 +4,9 @@ Locally this is a separate process from the web server:
 
     python -m app.jobs.refresh_popular
 
-In a cloud deployment the same command is the task started by Cloud Scheduler
-or EventBridge. It is not an always-on second copy of the API. Cities that
-are not marked popular are left for the on-demand path.
+Cloud Scheduler calls POST /api/v1/jobs/refresh-popular on this API.
+The local command below runs the same function. Cities that are not marked
+popular stay on the on-demand path.
 """
 
 from __future__ import annotations

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     cache_ttl_minutes: int = 30
     stale_after_minutes: int = 180
     cors_origins: str = "http://localhost:3000"
+    scheduler_token: str = ""
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

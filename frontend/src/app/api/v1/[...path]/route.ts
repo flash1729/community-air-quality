@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 
+export const maxDuration = 60;
+
 const BASE = process.env.API_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
@@ -22,7 +24,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     });
   } catch {
     return Response.json(
-      { detail: "The air quality API is not reachable. Start the backend on port 8000." },
+      { detail: "The air quality API is not reachable." },
       { status: 502 },
     );
   }

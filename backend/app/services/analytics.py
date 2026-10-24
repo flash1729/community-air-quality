@@ -31,6 +31,7 @@ from app.services.dashboard import (
     build_overview,
     get_location,
     preferred_location,
+    value_at_hour,
 )
 from app.timeutils import as_utc, db_time
 
@@ -232,10 +233,9 @@ def _hourly_points(values: dict, start: datetime, end: datetime) -> list[History
     points: list[HistoryPointOut] = []
     moment = start
     while moment <= end:
-        pollutants = {}
-        for parameter in CARD_PARAMETERS:
-            match = [value for measured_at, value in values.get(parameter, []) if as_utc(measured_at) == moment]
-            pollutants[parameter] = round(match[-1], 3) if match else None
+        pollutants = {
+            parameter: value_at_hour(values.get(parameter, []), moment) for parameter in CARD_PARAMETERS
+        }
         result = calculate_aqi(averages_at(values, moment))
         points.append(
             HistoryPointOut(

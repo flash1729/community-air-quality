@@ -122,23 +122,23 @@ export default function AboutPage() {
 
         <Section icon={<Cloud size={18} />} title="Cloud computing design" index={5}>
           <p>
-            The API is stateless. Measurements, forecasts, and cache entries live in the database, so a second
-            request inside the cache window does not call OpenAQ. When that window has passed, opening the
-            dashboard fetches again. If the provider fails, the last stored reading stays on screen and is marked
-            stale. The popular-city refresh stays a separate process, which is what Cloud Scheduler will run as a
-            Cloud Run job. Google Cloud is the selected host. The OpenAQ key stays in server configuration.
-            Deployment has not started, and Cloud SQL stays off until its price is confirmed.
+            The API is stateless and runs on Cloud Run in Iowa. It scales to zero when nobody is using it.
+            Measurements, forecasts, and cache entries live in SQLite on that instance, so a second request
+            inside the cache window does not call OpenAQ. The website itself is on Vercel, which is what
+            visitors in India download. Cloud Scheduler calls this same API once a night to refresh the
+            popular cities. The OpenAQ key and the scheduler token are in Secret Manager. Cloud SQL stays off.
           </p>
           <ul className={`mt-3 ${LIST}`}>
-            <li>Compute: Cloud Run for the API and the dashboard.</li>
+            <li>Compute: Cloud Run for the API, minimum instances 0 and maximum 1. Vercel for the dashboard.</li>
             <li>
-              Scheduled path: popular cities only, as a separate Cloud Run job running <Code>python -m app.jobs.refresh_popular</Code>.
+              Scheduled path: popular cities only, through <Code>POST /api/v1/jobs/refresh-popular</Code> at 02:30 IST.
+              The same function is <Code>python -m app.jobs.refresh_popular</Code> on a local machine.
             </li>
-            <li>On-demand path: any other city, and any city whose cache window has expired, when its dashboard is opened.</li>
+            <li>On-demand path: any other city, and a popular city that has no live readings yet, when its dashboard is opened.</li>
             <li>
-              Signals: <Code>/api/v1/health</Code> and <Code>/api/v1/metrics</Code>.
+              Signals: Cloud Run logs, an uptime check on <Code>/api/v1/health</Code> every 15 minutes, and <Code>/api/v1/metrics</Code>.
             </li>
-            <li>Cost target: $0 inside a verified free tier. No load balancer, NAT gateway, or queue unless one is actually required.</li>
+            <li>Cost target: ₹0 inside the free allowances. No load balancer, NAT gateway, Cloud SQL, or queue.</li>
           </ul>
         </Section>
 
@@ -148,6 +148,7 @@ export default function AboutPage() {
             <li>If a provider is down, the last stored reading stays on screen and is marked stale.</li>
             <li>Model weather and future air-quality forecasts are not the same thing as a monitor reading.</li>
             <li>Guidance is general. It does not replace advice from a clinician or a local authority.</li>
+            <li>The Cloud Run disk is wiped when the instance sleeps. The next visit fetches the stations again.</li>
           </ul>
         </Section>
       </main>
