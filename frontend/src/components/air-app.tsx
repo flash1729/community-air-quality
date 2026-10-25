@@ -29,6 +29,7 @@ import {
   AQI_MAX,
   categoryForIndex,
   categoryStyle,
+  categoryStyleFromAPI,
   compass,
   formatNumber,
   formatWhen,
@@ -397,7 +398,7 @@ function DashboardBody({
   pollutantUnit: string;
   onPollutant: (value: string) => void;
 }) {
-  const style = categoryStyle(overview.aqi.available ? overview.aqi.category : null);
+  const style = categoryStyleFromAPI(overview.aqi);
   const [stationFilter, setStationFilter] = useState("all");
   const [activeStation, setActiveStation] = useState<number | null>(null);
   const visibleStations = overview.stations.filter((station) => {
@@ -463,7 +464,9 @@ function DashboardBody({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="eyebrow">Current AQI</h2>
-                <p className="mt-1.5 text-xs text-muted">Indian AQI · {overview.aqi.methodology}</p>
+                <p className="mt-1.5 text-xs text-muted">
+                  {overview.aqi.methodology_display || overview.aqi.methodology}
+                </p>
               </div>
               {overview.aqi.available && overview.aqi.dominant_pollutants.length > 0 && (
                 <p className="chip" style={{ borderColor: `color-mix(in srgb, ${style.solid} 40%, transparent)` }}>
@@ -480,7 +483,12 @@ function DashboardBody({
               )}
             </div>
             <div className="mt-3">
-              <AqiGauge value={overview.aqi.value} category={overview.aqi.category} available={overview.aqi.available} />
+              <AqiGauge
+                value={overview.aqi.value}
+                category={overview.aqi.category}
+                available={overview.aqi.available}
+                categoryStyle={style}
+              />
             </div>
             {!overview.aqi.available && (
               <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-6 text-muted">{overview.aqi.reason}</p>
@@ -526,7 +534,14 @@ function DashboardBody({
         <section aria-label="Pollutants" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {overview.pollutants.map((item, index) => {
             const sub = overview.aqi.sub_indices.find((entry) => entry.parameter === item.parameter);
-            const subStyle = categoryStyle(categoryForIndex(sub?.sub_index));
+            const subStyle = sub?.category_color
+              ? {
+                  solid: sub.category_color,
+                  text: sub.category_color,
+                  on: "#ffffff",
+                  soft: `${sub.category_color}33`,
+                }
+              : categoryStyle(categoryForIndex(sub?.sub_index));
             const dominant = overview.aqi.available && overview.aqi.dominant_pollutants.includes(item.display_name);
             const missing = item.value === null;
             return (
@@ -750,7 +765,14 @@ function SubIndexCard({ overview }: { overview: Overview }) {
       ) : (
         <ol className="mt-5 space-y-4">
           {subs.map((sub, index) => {
-            const subStyle = categoryStyle(categoryForIndex(sub.sub_index));
+            const subStyle = sub.category_color
+              ? {
+                  solid: sub.category_color,
+                  text: sub.category_color,
+                  on: "#ffffff",
+                  soft: `${sub.category_color}33`,
+                }
+              : categoryStyle(categoryForIndex(sub.sub_index));
             const leading = overview.aqi.available && index === 0;
             return (
               <li key={sub.parameter}>

@@ -20,6 +20,7 @@ function style(token: string, on = "var(--aqi-on)"): CategoryStyle {
 
 const UNKNOWN = style("unknown");
 
+// LEGACY: CPCB categories. New code should use categoryStyleFromAPI() for dynamic colors.
 export const CATEGORIES: Record<string, CategoryStyle> = {
   Good: style("good"),
   Satisfactory: style("satisfactory"),
@@ -44,6 +45,27 @@ export const AQI_MAX = 500;
 export function categoryStyle(category: string | null | undefined): CategoryStyle {
   if (!category || !CATEGORIES[category]) return UNKNOWN;
   return CATEGORIES[category];
+}
+
+/**
+ * Get category style from API response with dynamic colors.
+ * Use this for multi-methodology support instead of hardcoded CATEGORIES.
+ */
+export function categoryStyleFromAPI(aqi: {
+  category_color?: string | null;
+  category_text_color?: string | null;
+  available: boolean;
+}): CategoryStyle {
+  if (!aqi.available || !aqi.category_color) {
+    return UNKNOWN;
+  }
+
+  return {
+    solid: aqi.category_color,
+    text: aqi.category_text_color || "#ffffff",
+    on: aqi.category_text_color || "#ffffff",
+    soft: `${aqi.category_color}33`, // 20% opacity
+  };
 }
 
 /** Band for an index value. Used to colour sub-indices, which arrive without a category. */

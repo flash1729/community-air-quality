@@ -10,6 +10,7 @@ class LocationOut(BaseModel):
     name: str
     city: str
     country: str
+    country_code: str | None = None  # NEW
     latitude: float
     longitude: float
     timezone: str
@@ -27,16 +28,24 @@ class SubIndexOut(BaseModel):
     concentration_used: float
     unit: str
     averaging_period: str
-    coverage_hours: int
+    coverage_hours: int | None = None  # CHANGED: was int
+    category: str | None = None  # NEW
+    category_code: str | None = None  # NEW
+    category_color: str | None = None  # NEW
 
 
 class AQIOut(BaseModel):
     available: bool
     value: int | None = None
     category: str | None = None
+    category_code: str | None = None  # NEW
+    category_color: str | None = None  # NEW
+    category_text_color: str | None = None  # NEW
     dominant_pollutants: list[str] = Field(default_factory=list)
     calculated_at: datetime | None = None
     methodology: str
+    methodology_display: str | None = None  # NEW
+    source_type: str = "observation"  # NEW
     reason: str | None = None
     sub_indices: list[SubIndexOut] = Field(default_factory=list)
     station_id: int | None = None

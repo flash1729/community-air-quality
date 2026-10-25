@@ -8,7 +8,14 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.aggregate import averages_at, latest_value
-from app.aqi import CANONICAL_UNIT, DISPLAY_NAME, METHODOLOGY_VERSION, calculate_aqi
+from app.aqi import (
+    PollutantReading,
+    calculate_aqi_for_location,
+    get_category_for_aqi,
+    get_methodology_display_name,
+)
+# Keep CPCB constants for backward compatibility with pollutant display
+from app.aqi.cpcb import CANONICAL_UNIT, DISPLAY_NAME
 from app.config import Settings
 from app.guidance import guidance_for
 from app.models import AQIRecord, Location, Measurement, Sensor, Station, WeatherRecord
@@ -68,6 +75,7 @@ def discover_location(session: Session, query: str, geocoder) -> list[Location]:
         name=place.name,
         city=place.name,
         country=place.country or "Unknown",
+        country_code=place.country_code,  # ADD THIS
         latitude=place.latitude,
         longitude=place.longitude,
         timezone=place.timezone,
@@ -141,6 +149,7 @@ def location_out(location: Location) -> LocationOut:
         name=location.name,
         city=location.city,
         country=location.country,
+        country_code=location.country_code,
         latitude=location.latitude,
         longitude=location.longitude,
         timezone=location.timezone,
@@ -188,14 +197,14 @@ def build_overview(
     loaded = {station.id: _load_series(session, station.id) for station in stations}
     stations = _prefer_live_stations(stations, loaded)
     station_payloads = [
-        _station_out(session, station, loaded[station.id], now) for station in stations
+        _station_out(session, station, loaded[station.id], now, location) for station in stations
     ]
     summary = _choose_summary(stations, loaded)
     summary_payload = next((item for item in station_payloads if summary and item.id == summary.id), None)
     series = loaded.get(summary.id, {}) if summary else {}
     aqi = summary_payload.aqi if summary_payload else _empty_aqi("No monitoring data is stored for this location.")
     pollutants = _pollutant_cards(series, now, aqi)
-    history = _history(location.id, summary, series, history_hours, now)
+    history = _history(location, summary, series, history_hours, now)
     weather = _latest_weather(session, location.id)
     origin = summary.provider if summary else "unavailable"
     if origin == "sample":
@@ -205,7 +214,7 @@ def build_overview(
         )
     freshness = _freshness(series, now, settings.stale_after_minutes, refresh_failed)
     health = guidance_for(aqi.category) if aqi.available else None
-    sources = _sources(origin, weather)
+    sources = _sources(origin, weather, aqi.methodology, location.country)
     overview = OverviewOut(
         location=location_out(location),
         freshness=freshness,
@@ -227,8 +236,11 @@ def station_detail(session: Session, station_id: int) -> StationOut | None:
     station = session.get(Station, station_id)
     if station is None:
         return None
+    location = session.get(Location, station.location_id)
+    if location is None:
+        return None
     series = _load_series(session, station.id)
-    return _station_out(session, station, series, utcnow())
+    return _station_out(session, station, series, utcnow(), location)
 
 
 def location_stations(session: Session, location_id: int) -> list[StationOut] | None:
@@ -239,7 +251,7 @@ def location_stations(session: Session, location_id: int) -> list[StationOut] | 
     loaded = {station.id: _load_series(session, station.id) for station in stations}
     stations = _prefer_live_stations(stations, loaded)
     now = utcnow()
-    return [_station_out(session, station, loaded[station.id], now) for station in stations]
+    return [_station_out(session, station, loaded[station.id], now, location) for station in stations]
 
 
 def _has_live_readings(session: Session, location_id: int) -> bool:
@@ -313,10 +325,20 @@ def _choose_summary(stations: list[Station], loaded: dict[int, Series]) -> Stati
     return best
 
 
-def _station_out(session: Session, station: Station, series: Series, now) -> StationOut:
+def _station_out(session: Session, station: Station, series: Series, now, location: Location) -> StationOut:
     values = _values_only(series)
     averages = averages_at(values, now)
-    result = calculate_aqi(averages)
+    # Convert to PollutantReading format
+    readings = [
+        PollutantReading(
+            parameter=avg.parameter,
+            concentration=avg.concentration,
+            averaging_period=avg.averaging_period,
+            coverage_hours=avg.coverage_hours,
+        )
+        for avg in averages
+    ]
+    result = calculate_aqi_for_location(readings, location.country_code)
     calculated_at = _latest_timestamp(series)
     aqi = _aqi_out(result, calculated_at, station)
     _remember_aqi(session, station, aqi)
@@ -366,35 +388,56 @@ def _parameter_list(series: Series) -> list[str]:
 
 
 def _aqi_out(result, calculated_at, station: Station | None) -> AQIOut:
+    """Convert AQIResult to AQIOut schema with category metadata."""
+    category_style = None
+    if result.available and result.aqi is not None:
+        category_style = get_category_for_aqi(result.methodology, result.aqi)
+
+    methodology_display = get_methodology_display_name(result.methodology)
+
     return AQIOut(
         available=result.available,
         value=result.aqi,
         category=result.category,
+        category_code=category_style.code if category_style else None,
+        category_color=category_style.color if category_style else None,
+        category_text_color=category_style.text_color if category_style else None,
         dominant_pollutants=result.dominant_pollutants,
         calculated_at=calculated_at,
         methodology=result.methodology,
+        methodology_display=methodology_display,
+        source_type="observation",
         reason=result.reason,
         sub_indices=[
-            SubIndexOut(
-                parameter=item.parameter,
-                display_name=item.display_name,
-                sub_index=item.sub_index,
-                concentration_used=item.concentration_used,
-                unit=item.unit,
-                averaging_period=item.averaging_period,
-                coverage_hours=item.coverage_hours,
-            )
-            for item in result.sub_indices
+            _sub_index_out(item, result.methodology) for item in result.sub_indices
         ],
         station_id=station.id if station else None,
         station_name=station.name if station else None,
     )
 
 
+def _sub_index_out(sub_index, methodology: str) -> SubIndexOut:
+    """Convert SubIndexResult to SubIndexOut with category metadata."""
+    category_style = get_category_for_aqi(methodology, sub_index.sub_index)
+
+    return SubIndexOut(
+        parameter=sub_index.parameter,
+        display_name=sub_index.display_name,
+        sub_index=sub_index.sub_index,
+        concentration_used=sub_index.concentration_used,
+        unit=sub_index.unit,
+        averaging_period=sub_index.averaging_period,
+        coverage_hours=sub_index.coverage_hours,
+        category=category_style.name if category_style else None,
+        category_code=category_style.code if category_style else None,
+        category_color=category_style.color if category_style else None,
+    )
+
+
 def _empty_aqi(reason: str) -> AQIOut:
     return AQIOut(
         available=False,
-        methodology=METHODOLOGY_VERSION,
+        methodology="unavailable",
         reason=reason,
     )
 
@@ -421,6 +464,7 @@ def _remember_aqi(session: Session, station: Station, aqi: AQIOut) -> None:
             available=aqi.available,
             reason=aqi.reason,
             methodology=aqi.methodology,
+            source_type=aqi.source_type,
             inputs_json=json.dumps([item.model_dump(mode="json") for item in aqi.sub_indices]),
             calculated_at=stamp,
         )
@@ -464,7 +508,7 @@ def _pollutant_cards(series: Series, now, aqi: AQIOut) -> list[PollutantOut]:
     return cards
 
 
-def _history(location_id: int, station: Station | None, series: Series, hours: int, now) -> HistoryOut:
+def _history(location: Location, station: Station | None, series: Series, hours: int, now) -> HistoryOut:
     values = _values_only(series)
     end = _latest_timestamp(series) or now
     end = as_utc(end).replace(minute=0, second=0, microsecond=0)
@@ -474,7 +518,17 @@ def _history(location_id: int, station: Station | None, series: Series, hours: i
         pollutants = {
             parameter: value_at_hour(values.get(parameter, []), moment) for parameter in CARD_PARAMETERS
         }
-        result = calculate_aqi(averages_at(values, moment))
+        averages = averages_at(values, moment)
+        readings = [
+            PollutantReading(
+                parameter=avg.parameter,
+                concentration=avg.concentration,
+                averaging_period=avg.averaging_period,
+                coverage_hours=avg.coverage_hours,
+            )
+            for avg in averages
+        ]
+        result = calculate_aqi_for_location(readings, location.country_code)
         points.append(
             HistoryPointOut(
                 measured_at=moment,
@@ -484,14 +538,15 @@ def _history(location_id: int, station: Station | None, series: Series, hours: i
             )
         )
     return HistoryOut(
-        location_id=location_id,
+        location_id=location.id,
         station_id=station.id if station else None,
         station_name=station.name if station else None,
         hours=hours,
         points=points,
         note=(
-            "Pollutant lines are hourly observations. The AQI line is a rolling CPCB "
-            "calculation and stays empty until coverage rules are met. Gaps are not filled."
+            "Pollutant lines are hourly observations. The AQI line is calculated using "
+            "the appropriate methodology for this country and stays empty until coverage "
+            "rules are met. Gaps are not filled."
         ),
     )
 
@@ -558,7 +613,7 @@ def _freshness(series: Series, now, stale_after_minutes: int, refresh_failed: bo
     return "stale"
 
 
-def _sources(origin: str, weather: WeatherOut | None) -> list[str]:
+def _sources(origin: str, weather: WeatherOut | None, methodology: str, country: str) -> list[str]:
     sources = []
     if origin == "openaq":
         sources.append("Station observations: OpenAQ")
@@ -566,7 +621,17 @@ def _sources(origin: str, weather: WeatherOut | None) -> list[str]:
         sources.append("Station observations: bundled sample dataset")
     else:
         sources.append("Station observations: unavailable")
-    sources.append("Indian AQI: calculated in this app with CPCB NAQI methodology")
+
+    # Dynamic methodology label
+    if methodology == "CPCB":
+        sources.append("Indian AQI: calculated with CPCB National AQI (2014)")
+    elif methodology == "US-EPA":
+        sources.append("US AQI: calculated with EPA AQI methodology (2016)")
+    elif methodology == "European":
+        sources.append("European AQI: calculated with EEA Air Quality Index (2021)")
+    elif methodology == "unavailable":
+        sources.append(f"AQI calculation unavailable for {country}")
+    
     if weather is not None:
         sources.append(f"Weather: {weather.label}")
     return sources

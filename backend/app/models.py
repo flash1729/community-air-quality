@@ -27,6 +27,7 @@ class Location(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     city: Mapped[str] = mapped_column(String(120), nullable=False)
     country: Mapped[str] = mapped_column(String(80), nullable=False, default="India")
+    country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)  # ISO 3166-1 alpha-2
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Asia/Kolkata")
@@ -93,16 +94,21 @@ class Measurement(Base):
 
 class AQIRecord(Base):
     __tablename__ = "aqi_records"
+    __table_args__ = (
+        Index("ix_aqi_location_methodology_time", "location_id", "methodology", "calculated_at"),
+        Index("ix_aqi_station_methodology_time", "station_id", "methodology", "calculated_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"), nullable=True, index=True)
     station_id: Mapped[int | None] = mapped_column(ForeignKey("stations.id"), nullable=True, index=True)
     aqi: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    category: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)  # CHANGED: 32 -> 64 for longer category names
     dominant_pollutant: Mapped[str | None] = mapped_column(String(80), nullable=True)
     available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     methodology: Mapped[str] = mapped_column(String(40), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False, default="observation")  # NEW: "observation" or "model"
     inputs_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

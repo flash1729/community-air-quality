@@ -1,6 +1,6 @@
 "use client";
 
-import { AQI_MAX, AQI_SCALE, categoryStyle } from "@/lib/format";
+import { AQI_MAX, AQI_SCALE, CategoryStyle, categoryStyle } from "@/lib/format";
 import { useCountUp } from "@/components/ui";
 
 const CX = 150;
@@ -39,14 +39,16 @@ export function AqiGauge({
   value,
   category,
   available,
+  categoryStyle: categoryStyleProp,
 }: {
   value: number | null;
   category: string | null;
   available: boolean;
+  categoryStyle?: CategoryStyle; // Optional for backward compatibility
 }) {
   const target = available && value !== null ? value : 0;
   const shown = useCountUp(target);
-  const current = categoryStyle(available ? category : null);
+  const current = categoryStyleProp || categoryStyle(available ? category : null);
   const knob = point(angleFor(shown));
 
   return (
