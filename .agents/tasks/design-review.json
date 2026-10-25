@@ -1,0 +1,50 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "id": "NIT-1",
+      "title": "Unit Conversion Verification Needed for CO Storage",
+      "location": "Section 1.4 (US EPA Implementation), unit conversion comment",
+      "issue": "The design's EPA conversion function assumes CO input in µg/m³, but CO is actually stored in mg/m³ according to normalize.py lines 74-82.",
+      "fix": "Clarify the conversion function should accept mg/m³ for CO: `return concentration / 1145  # mg/m³ to ppm (CO stored in mg/m³)`"
+    },
+    {
+      "severity": "NIT",
+      "id": "NIT-2",
+      "title": "Location.country_code Migration Not Specified",
+      "location": "Section 9.2 (Location Model Enhancement)",
+      "issue": "The design adds country_code field but doesn't specify how to handle existing Location records without a country_code.",
+      "fix": "Add migration guidance: existing locations can have NULL country_code and get populated on next search/refresh. Optionally backfill Indian locations with 'IN'."
+    },
+    {
+      "severity": "NIT",
+      "id": "NIT-3",
+      "title": "European AQI Gauge Scale Mapping Unclear",
+      "location": "Section 1.5 (European AQI Implementation), band-to-index mapping",
+      "issue": "Ambiguous whether the API returns the band number (1-6) or the mapped value (25-150) for European AQI.",
+      "fix": "Clarify in Section 2.2: aqi.value contains the mapped index (25, 50, 75, 100, 125, or 150), not the raw band number."
+    },
+    {
+      "severity": "NIT",
+      "id": "NIT-4",
+      "title": "Pollutant Averaging for European AQI Not Detailed",
+      "location": "Section 1.5 (European AQI Implementation)",
+      "issue": "Doesn't specify whether 'daily mean' uses rolling 24-hour window or calendar day.",
+      "fix": "Add clarification: European AQI uses rolling 24-hour averages for PM2.5/PM10 (same as CPCB), and latest 1-hour values for NO2/O3/SO2. Minimum 18 hours coverage for 24h averages."
+    },
+    {
+      "severity": "NIT",
+      "id": "NIT-5",
+      "title": "Error Handling for NO2/SO2 EPA Conversions Not Specified",
+      "location": "Section 1.4 (US EPA Implementation), unit conversions",
+      "issue": "EPA uses 1-hour NO2/SO2 but database may have 24-hour from CPCB. Handling for mismatched periods not specified.",
+      "fix": "Add to Section 1.4: Prefer 1-hour measurements if available, otherwise exclude NO2/SO2 from EPA calculation rather than using mismatched periods."
+    }
+  ],
+  "highCount": 0,
+  "mediumCount": 0,
+  "nitCount": 5,
+  "reviewDoc": "/home/vishwas/Desktop/CC/community-air-quality/.worktrees/global-aqi/.agents/tasks/design-review.md",
+  "summary": "Design is ready for implementation. All HIGH and MEDIUM findings from previous review have been addressed. Breakpoints are verified/sourced from official EPA and EEA documentation. Architecture preserves separation of concerns. Backward compatibility maintained. Five NIT findings are minor clarifications that won't block implementation."
+}

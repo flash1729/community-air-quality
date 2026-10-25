@@ -487,6 +487,7 @@ function DashboardBody({
                 value={overview.aqi.value}
                 category={overview.aqi.category}
                 available={overview.aqi.available}
+                maxScale={overview.aqi.max_scale || 500}
                 categoryStyle={style}
               />
             </div>
@@ -806,7 +807,8 @@ function SubIndexCard({ overview }: { overview: Overview }) {
                 </div>
                 <p className="mt-1.5 text-[11px] leading-4 text-muted">
                   {formatNumber(sub.concentration_used, sub.parameter === "co" ? 1 : 0)} {sub.unit} ·{" "}
-                  {sub.averaging_period} average · {sub.coverage_hours} h of data
+                  {sub.averaging_period} average
+                  {sub.coverage_hours !== null && sub.coverage_hours !== undefined && ` · ${sub.coverage_hours} h of data`}
                 </p>
               </li>
             );

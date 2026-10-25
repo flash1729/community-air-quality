@@ -1,0 +1,13 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Database migration missing — Schema changes in models.py (country_code, source_type, category length, indexes) require an Alembic migration. Run `alembic revision --autogenerate -m \"global aqi support\"` and `alembic upgrade head`.",
+    "Country code backfill needed — Existing Indian cities have `country_code = NULL`. When AQI is calculated for these cities, resolver returns \"unavailable\" instead of CPCB. Run `UPDATE locations SET country_code = 'IN' WHERE country = 'India';` after schema migration.",
+    "CO unit conversion assumption undocumented — US EPA calculator assumes database stores CO in µg/m³ and converts to ppm by dividing by 1,145,000. If the database stores mg/m³ (which CPCB uses), the conversion is wrong by 1000x. Verify actual database unit and adjust or document.",
+    "Coverage hours display shows \"null h\" — Frontend pollutant cards display \"null h of data\" when coverage_hours is None (US EPA and European methodologies). Conditionally render the coverage line only when coverage_hours is not null.",
+    "Verification evidence incomplete — verification.md reports \"could not run tests due to missing pytest installation\" and \"could not verify TypeScript compilation due to missing node_modules\". Without test execution, CPCB preservation claim is unverified. Run backend tests and frontend build.",
+    "European AQI gauge scale mismatch — European methodology caps AQI at 150 (band 6 → 25 * 6). Gauge assumes 0-500 range and renders 150 at 30% of arc instead of 100%. European \"Extremely Poor\" should feel like a maximum. Verify gauge component handles variable scales or normalize European bands to 0-500.",
+    "Health guidance unavailable for non-CPCB — `guidance_for()` only handles CPCB category names. US/European cities show \"Health guidance is hidden because a valid CPCB AQI could not be calculated\" even when AQI is available. Extend guidance.py to support all three category systems or map non-CPCB to CPCB equivalents."
+  ],
+  "reviewDoc": "/home/vishwas/Desktop/CC/community-air-quality/.worktrees/global-aqi/.agents/tasks/build-review.md"
+}

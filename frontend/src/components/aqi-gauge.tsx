@@ -1,6 +1,6 @@
 "use client";
 
-import { AQI_MAX, AQI_SCALE, CategoryStyle, categoryStyle } from "@/lib/format";
+import { AQI_SCALE, CategoryStyle, categoryStyle } from "@/lib/format";
 import { useCountUp } from "@/components/ui";
 
 const CX = 150;
@@ -11,8 +11,8 @@ const START = 150; // degrees, lower left
 const SWEEP = 240; // degrees, clockwise to lower right
 const GAP = 1.1; // degrees trimmed from each side of a band
 
-function angleFor(value: number) {
-  return START + (Math.max(0, Math.min(AQI_MAX, value)) / AQI_MAX) * SWEEP;
+function angleFor(value: number, maxScale: number) {
+  return START + (Math.max(0, Math.min(maxScale, value)) / maxScale) * SWEEP;
 }
 
 function point(angle: number, radius = RADIUS) {
@@ -33,23 +33,30 @@ const BANDS = AQI_SCALE.map((band, index) => ({
   from: index === 0 ? 0 : band.min - 1,
   to: band.max,
 }));
-const TICKS = [0, ...BANDS.map((band) => band.to)];
+const DEFAULT_TICKS = [0, ...BANDS.map((band) => band.to)];
 
 export function AqiGauge({
   value,
   category,
   available,
+  maxScale = 500,
   categoryStyle: categoryStyleProp,
 }: {
   value: number | null;
   category: string | null;
   available: boolean;
+  maxScale?: number; // Maximum AQI value (500 for CPCB/US EPA, 150 for European)
   categoryStyle?: CategoryStyle; // Optional for backward compatibility
 }) {
   const target = available && value !== null ? value : 0;
   const shown = useCountUp(target);
   const current = categoryStyleProp || categoryStyle(available ? category : null);
-  const knob = point(angleFor(shown));
+  const knob = point(angleFor(shown, maxScale));
+
+  // Use scaled ticks for European AQI, default ticks for others
+  const ticks = maxScale === 150 
+    ? [0, 25, 50, 75, 100, 125, 150]
+    : DEFAULT_TICKS.map(tick => tick <= maxScale ? tick : null).filter((t): t is number => t !== null);
 
   return (
     <div className="relative mx-auto w-full max-w-[21rem]">
@@ -57,13 +64,15 @@ export function AqiGauge({
         viewBox="0 0 300 226"
         className="block w-full"
         role="img"
-        aria-label={available ? `AQI ${value}, ${category}, on a scale from 0 to 500` : "AQI unavailable"}
+        aria-label={available ? `AQI ${value}, ${category}, on a scale from 0 to ${maxScale}` : "AQI unavailable"}
       >
         {BANDS.map((band) => {
-          const from = angleFor(band.from) + (band.from === 0 ? 0 : GAP);
-          const to = angleFor(band.to) - (band.to === AQI_MAX ? 0 : GAP);
+          const from = angleFor(band.from, maxScale) + (band.from === 0 ? 0 : GAP);
+          const to = angleFor(Math.min(band.to, maxScale), maxScale) - (band.to >= maxScale ? 0 : GAP);
           const color = categoryStyle(band.category).solid;
-          const reached = available ? Math.min(to, angleFor(shown)) : from;
+          const reached = available ? Math.min(to, angleFor(shown, maxScale)) : from;
+          // Skip bands that start beyond our max scale
+          if (band.from >= maxScale) return null;
           return (
             <g key={band.category}>
               <path d={arc(from, to)} fill="none" stroke={color} strokeOpacity={0.2} strokeWidth={STROKE} />
@@ -74,8 +83,8 @@ export function AqiGauge({
           );
         })}
 
-        {TICKS.map((tick) => {
-          const spot = point(angleFor(tick), RADIUS + 19);
+        {ticks.map((tick) => {
+          const spot = point(angleFor(tick, maxScale), RADIUS + 19);
           return (
             <text
               key={tick}

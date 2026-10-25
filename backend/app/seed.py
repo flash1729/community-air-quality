@@ -93,6 +93,7 @@ def seed_sample_data(session: Session, now=None) -> None:
             name=city["name"],
             city=city["city"],
             country=city["country"],
+            country_code="IN",  # All sample cities are Indian
             latitude=city["latitude"],
             longitude=city["longitude"],
             timezone=city["timezone"],

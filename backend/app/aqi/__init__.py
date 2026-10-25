@@ -7,19 +7,55 @@ based on location country code.
 from __future__ import annotations
 
 from .base import AQIResult, CategoryMetadata, PollutantReading, SubIndexResult
-from .categories import get_categories, get_category_for_aqi
+from .categories import get_categories, get_category_for_aqi, get_max_scale
+from .cpcb import (
+    CANONICAL_UNIT,
+    DISPLAY_NAME,
+    EIGHT_HOUR,
+    METHODOLOGY_VERSION,
+    MIN_COVERAGE_24H,
+    MIN_COVERAGE_8H,
+    TWENTY_FOUR_HOUR,
+    sub_index_for,
+)
 from .resolver import get_calculator, get_methodology_display_name, resolve_methodology
+
+# Backward compatibility alias
+PollutantAverage = PollutantReading
 
 __all__ = [
     "calculate_aqi_for_location",
+    "calculate_aqi",  # Backward compatible
     "PollutantReading",
+    "PollutantAverage",  # Backward compatible
     "AQIResult",
     "SubIndexResult",
     "CategoryMetadata",
     "get_category_for_aqi",
     "get_categories",
+    "get_max_scale",
     "get_methodology_display_name",
+    "CANONICAL_UNIT",  # Backward compatible
+    "DISPLAY_NAME",  # Backward compatible
+    "METHODOLOGY_VERSION",  # Backward compatible
+    "EIGHT_HOUR",  # Backward compatible
+    "TWENTY_FOUR_HOUR",  # Backward compatible
+    "MIN_COVERAGE_8H",  # Backward compatible
+    "MIN_COVERAGE_24H",  # Backward compatible
+    "sub_index_for",  # Backward compatible
 ]
+
+
+def calculate_aqi(readings: list[PollutantReading]) -> AQIResult:
+    """
+    Backward-compatible CPCB-only AQI calculation.
+    
+    This function exists for compatibility with existing code and tests.
+    New code should use calculate_aqi_for_location() which supports multiple methodologies.
+    """
+    from .cpcb import CPCBAQICalculator
+    calculator = CPCBAQICalculator()
+    return calculator.calculate(readings)
 
 
 def calculate_aqi_for_location(

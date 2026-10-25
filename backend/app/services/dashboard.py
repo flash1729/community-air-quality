@@ -12,6 +12,7 @@ from app.aqi import (
     PollutantReading,
     calculate_aqi_for_location,
     get_category_for_aqi,
+    get_max_scale,
     get_methodology_display_name,
 )
 # Keep CPCB constants for backward compatibility with pollutant display
@@ -394,6 +395,7 @@ def _aqi_out(result, calculated_at, station: Station | None) -> AQIOut:
         category_style = get_category_for_aqi(result.methodology, result.aqi)
 
     methodology_display = get_methodology_display_name(result.methodology)
+    max_scale = get_max_scale(result.methodology)
 
     return AQIOut(
         available=result.available,
@@ -406,6 +408,7 @@ def _aqi_out(result, calculated_at, station: Station | None) -> AQIOut:
         calculated_at=calculated_at,
         methodology=result.methodology,
         methodology_display=methodology_display,
+        max_scale=max_scale,
         source_type="observation",
         reason=result.reason,
         sub_indices=[

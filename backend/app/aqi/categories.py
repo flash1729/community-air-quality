@@ -199,3 +199,10 @@ def get_category_for_aqi(methodology: str, aqi_value: int) -> CategoryMetadata |
     if categories and aqi_value > categories[-1].max_aqi:
         return categories[-1]
     return None
+
+
+def get_max_scale(methodology: str) -> int:
+    """Return the maximum AQI scale value for the given methodology."""
+    if methodology == "European":
+        return 150  # European AQI caps at 150
+    return 500  # CPCB and US EPA use 0-500 scale

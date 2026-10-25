@@ -52,13 +52,42 @@ GUIDANCE: dict[str, dict[str, list[str] | str]] = {
     },
 }
 
+# Map non-CPCB category names to CPCB equivalents for guidance
+# US EPA and European categories map to similar health risk levels
+CATEGORY_MAPPING = {
+    # US EPA categories
+    "Moderate": "Satisfactory",  # US EPA "Moderate" ~ CPCB "Satisfactory" (51-100)
+    "Unhealthy for Sensitive Groups": "Moderate",  # US EPA USG ~ CPCB "Moderate" (101-150 vs 101-200)
+    "Unhealthy": "Poor",  # US EPA "Unhealthy" ~ CPCB "Poor" (151-200 vs 201-300)
+    "Very Unhealthy": "Very Poor",  # Direct match
+    "Hazardous": "Severe",  # US EPA "Hazardous" ~ CPCB "Severe" (301+ vs 401+)
+    
+    # European categories
+    "Fair": "Satisfactory",  # European "Fair" ~ CPCB "Satisfactory"
+    # "Moderate" already in base GUIDANCE
+    # "Poor" already in base GUIDANCE
+    # "Very Poor" already in base GUIDANCE
+    "Extremely Poor": "Severe",  # European "Extremely Poor" ~ CPCB "Severe"
+}
+
 
 def guidance_for(category: str | None) -> dict | None:
     if category is None:
         return None
+    
+    # Try direct lookup first
     content = GUIDANCE.get(category)
+    
+    # If not found, try mapping from non-CPCB category
+    if content is None:
+        mapped_category = CATEGORY_MAPPING.get(category)
+        if mapped_category:
+            content = GUIDANCE.get(mapped_category)
+            category = mapped_category  # Use the mapped category name in response
+    
     if content is None:
         return None
+    
     return {
         "category": category,
         "summary": content["summary"],

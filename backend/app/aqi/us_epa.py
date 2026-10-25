@@ -118,20 +118,24 @@ CATEGORIES = [
 ]
 
 
-def to_epa_units(concentration_ugm3: float, parameter: str) -> float:
-    """Convert µg/m³ to EPA units (ppm or ppb) at 25°C, 1 atm."""
+def to_epa_units(concentration_canonical: float, parameter: str) -> float:
+    """Convert canonical database units to EPA units (ppm or ppb) at 25°C, 1 atm.
+    
+    IMPORTANT: Database stores CO in mg/m³ (verified in providers/openmeteo.py line 50).
+    All other pollutants are stored in µg/m³.
+    """
     if parameter == "o3":
-        return concentration_ugm3 / 1960  # µg/m³ to ppm
+        return concentration_canonical / 1960  # µg/m³ to ppm
     elif parameter == "co":
-        # Database may store CO in mg/m³ or µg/m³
-        # Assume µg/m³ here; adjust if needed
-        return concentration_ugm3 / 1145000  # µg/m³ to ppm
+        # Database stores CO in mg/m³, convert to ppm
+        # mg/m³ * 1000 = µg/m³, then µg/m³ / 1145 = ppm
+        return (concentration_canonical * 1000) / 1145  # mg/m³ to ppm
     elif parameter == "so2":
-        return concentration_ugm3 / 2.62  # µg/m³ to ppb
+        return concentration_canonical / 2.62  # µg/m³ to ppb
     elif parameter == "no2":
-        return concentration_ugm3 / 1.88  # µg/m³ to ppb
+        return concentration_canonical / 1.88  # µg/m³ to ppb
     elif parameter in {"pm25", "pm10"}:
-        return concentration_ugm3  # Already in µg/m³
+        return concentration_canonical  # Already in µg/m³
     else:
         raise ValueError(f"No EPA conversion for {parameter}")
 

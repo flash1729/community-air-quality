@@ -3,6 +3,7 @@ export type Location = {
   name: string;
   city: string;
   country: string;
+  country_code?: string | null;  // NEW
   latitude: number;
   longitude: number;
   timezone: string;
@@ -16,16 +17,26 @@ export type SubIndex = {
   concentration_used: number;
   unit: string;
   averaging_period: string;
-  coverage_hours: number;
+  coverage_hours: number | null;  // Changed from number to support US EPA/European
+  category?: string | null;  // NEW
+  category_code?: string | null;  // NEW
+  category_color?: string | null;  // NEW
+  category_text_color?: string | null;  // NEW
 };
 
 export type Aqi = {
   available: boolean;
   value: number | null;
   category: string | null;
+  category_code?: string | null;  // NEW
+  category_color?: string | null;  // NEW
+  category_text_color?: string | null;  // NEW
   dominant_pollutants: string[];
   calculated_at: string | null;
   methodology: string;
+  methodology_display?: string | null;  // NEW
+  max_scale?: number;  // NEW
+  source_type?: string;  // NEW
   reason: string | null;
   sub_indices: SubIndex[];
   station_id: number | null;

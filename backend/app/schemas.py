@@ -45,6 +45,7 @@ class AQIOut(BaseModel):
     calculated_at: datetime | None = None
     methodology: str
     methodology_display: str | None = None  # NEW
+    max_scale: int = 500  # NEW: Maximum AQI value for gauge (500 for CPCB/US EPA, 150 for European)
     source_type: str = "observation"  # NEW
     reason: str | None = None
     sub_indices: list[SubIndexOut] = Field(default_factory=list)
