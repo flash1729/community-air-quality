@@ -1,13 +1,9 @@
 {
-  "verdict": "CHANGES_REQUESTED",
+  "verdict": "APPROVED",
   "findings": [
-    "Database migration missing — Schema changes in models.py (country_code, source_type, category length, indexes) require an Alembic migration. Run `alembic revision --autogenerate -m \"global aqi support\"` and `alembic upgrade head`.",
-    "Country code backfill needed — Existing Indian cities have `country_code = NULL`. When AQI is calculated for these cities, resolver returns \"unavailable\" instead of CPCB. Run `UPDATE locations SET country_code = 'IN' WHERE country = 'India';` after schema migration.",
-    "CO unit conversion assumption undocumented — US EPA calculator assumes database stores CO in µg/m³ and converts to ppm by dividing by 1,145,000. If the database stores mg/m³ (which CPCB uses), the conversion is wrong by 1000x. Verify actual database unit and adjust or document.",
-    "Coverage hours display shows \"null h\" — Frontend pollutant cards display \"null h of data\" when coverage_hours is None (US EPA and European methodologies). Conditionally render the coverage line only when coverage_hours is not null.",
-    "Verification evidence incomplete — verification.md reports \"could not run tests due to missing pytest installation\" and \"could not verify TypeScript compilation due to missing node_modules\". Without test execution, CPCB preservation claim is unverified. Run backend tests and frontend build.",
-    "European AQI gauge scale mismatch — European methodology caps AQI at 150 (band 6 → 25 * 6). Gauge assumes 0-500 range and renders 150 at 30% of arc instead of 100%. European \"Extremely Poor\" should feel like a maximum. Verify gauge component handles variable scales or normalize European bands to 0-500.",
-    "Health guidance unavailable for non-CPCB — `guidance_for()` only handles CPCB category names. US/European cities show \"Health guidance is hidden because a valid CPCB AQI could not be calculated\" even when AQI is available. Extend guidance.py to support all three category systems or map non-CPCB to CPCB equivalents."
+    "CO unit conversion mismatch between databases — The provider stores CO in mg/m³, but the US EPA calculator initially assumed µg/m³, causing a 1000x error. Fixed in verification pass (corrected conversion factor from 1,145,000 to 1,145). Add a docstring to Measurement.value specifying canonical units per parameter.",
+    "European AQI band boundaries are thresholds, not interpolated breakpoints — The European calculator uses < for the upper bound check but the last band uses float('inf'). A concentration exactly at a threshold (e.g., 10.0 µg/m³ PM2.5) falls into the higher band due to the exclusive upper bound. Verify this matches EEA spec.",
+    "Resolver mapping uses EEA for countries with national indices — UK (GB) and Germany (DE) have their own AQI systems (DAQI, UBA) but the resolver maps them to European. Users in these countries will see EEA categories instead of their familiar national ones. Document this in API docs or add a note in the unavailable message for these countries."
   ],
   "reviewDoc": "/home/vishwas/Desktop/CC/community-air-quality/.worktrees/global-aqi/.agents/tasks/build-review.md"
 }
