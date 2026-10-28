@@ -180,3 +180,41 @@ class IngestionRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CommunitySensor(Base):
+    __tablename__ = "community_sensors"
+    __table_args__ = (Index("ix_community_sensors_status", "status"),)
+
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    sensor_type: Mapped[str] = mapped_column(String(20), nullable=False, default="virtual")
+    auth_token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    readings: Mapped[list[CommunitySensorReading]] = relationship(back_populates="sensor")
+
+
+class CommunitySensorReading(Base):
+    __tablename__ = "community_sensor_readings"
+    __table_args__ = (
+        UniqueConstraint("sensor_id", "sequence_number", name="uq_reading_sensor_sequence"),
+        Index("ix_readings_sensor_time", "sensor_id", "recorded_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sensor_id: Mapped[str] = mapped_column(ForeignKey("community_sensors.id"), nullable=False)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    pm25: Mapped[float] = mapped_column(Float, nullable=False)
+    pm10: Mapped[float] = mapped_column(Float, nullable=False)
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
+    humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    quality_status: Mapped[str] = mapped_column(String(20), nullable=False, default="accepted")
+
+    sensor: Mapped[CommunitySensor] = relationship(back_populates="readings")

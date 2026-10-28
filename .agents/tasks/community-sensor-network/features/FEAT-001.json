@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Backend: Community sensor database models, authentication, API endpoints, and seed script. Creates CommunitySensor and CommunitySensorReading tables following existing SQLAlchemy patterns in models.py. Implements Bearer token authentication with hashed storage. Exposes 6 REST endpoints in new router following patterns from routers/stations.py. Seed script generates 10 virtual sensors across Bengaluru with coordinates and tokens, storing plaintext tokens in gitignored JSON for simulator use.",
+  "status": "completed",
+  "steps": [
+    "1. Add CommunitySensor model to /home/vishwas/Desktop/CC/community-air-quality/backend/app/models.py: id String PK (like 'SENSOR_001'), name String(160), latitude Float, longitude Float, sensor_type String(20) default 'virtual', auth_token_hash String(255), status String(20) default 'active', created_at DateTime, last_seen DateTime nullable. Index on status.",
+    "2. Add CommunitySensorReading model to /home/vishwas/Desktop/CC/community-air-quality/backend/app/models.py: id Integer PK autoincrement, sensor_id String FK community_sensors.id, sequence_number Integer, pm25 Float, pm10 Float, temperature Float nullable, humidity Float nullable, recorded_at DateTime (device timestamp), received_at DateTime (backend timestamp), quality_status String(20) default 'accepted'. UniqueConstraint on (sensor_id, sequence_number). Index on (sensor_id, recorded_at).",
+    "3. Add Pydantic schemas to /home/vishwas/Desktop/CC/community-air-quality/backend/app/schemas.py: CommunitySensorOut (id, name, latitude, longitude, sensor_type, status, created_at, last_seen, latest_reading: CommunitySensorReadingOut|None), CommunitySensorReadingOut (sensor_id, sequence_number, pm25, pm10, temperature, humidity, recorded_at, received_at, quality_status), CommunitySensorReadingSubmit (sensor_id, sequence_number, pm25, pm10, temperature nullable, humidity nullable, recorded_at), CommunitySensorRegister (sensor_id, name, latitude, longitude, sensor_type).",
+    "4. Install werkzeug or passlib for password hashing: add 'passlib[bcrypt]==1.7.4' to /home/vishwas/Desktop/CC/community-air-quality/backend/requirements.txt. Use passlib.hash.bcrypt.hash() for token hashing and .verify() for validation.",
+    "5. Create /home/vishwas/Desktop/CC/community-air-quality/backend/app/routers/community_sensors.py following patterns from routers/stations.py and routers/locations.py. Import get_db from locations. Implement 6 endpoints: POST /api/v1/community/sensors (register sensor, generate token, hash before storing, return plaintext token once), POST /api/v1/community/sensors/readings (Bearer auth via Header, validate token matches sensor_id, sensor active, pm25/pm10 non-negative, humidity 0-100 if provided, no duplicate sequence_number, reasonable ranges pm25<500 pm10<1000, update last_seen on success, return 401 for invalid token, 400 for validation failures), GET /api/v1/community/sensors (list all with latest reading via LEFT JOIN), GET /api/v1/community/sensors/{sensor_id} (detail + latest reading), GET /api/v1/community/sensors/{sensor_id}/readings (paginated readings with limit/offset, optional time range), GET /api/v1/community/map (map data: all sensors with latest readings for frontend map).",
+    "6. Register community_sensors router in /home/vishwas/Desktop/CC/community-air-quality/backend/app/main.py: import and app.include_router(community_sensors.router, prefix='/api/v1') following existing router registration pattern.",
+    "7. Create /home/vishwas/Desktop/CC/community-air-quality/backend/app/seed_community_sensors.py following seed.py pattern. Generate 10 CommunitySensor records with IDs SENSOR_001 to SENSOR_010, names 'Koramangala Sensor 1' etc, coordinates: SENSOR_001 (12.9352,77.6245), SENSOR_002 (12.9716,77.6412), SENSOR_003 (12.9116,77.6382), SENSOR_004 (12.9698,77.7499), SENSOR_005 (12.9591,77.6974), SENSOR_006 (12.8458,77.6603), SENSOR_007 (12.9250,77.5937), SENSOR_008 (12.9759,77.6061), SENSOR_009 (13.0358,77.5970), SENSOR_010 (13.1007,77.5963). Generate unique random tokens (secrets.token_urlsafe(32)), hash them, store hashed in DB. Write plaintext tokens to /home/vishwas/Desktop/CC/community-air-quality/backend/data/sensor_tokens.json (gitignored) as {sensor_id: token} for simulator. Script runs as python -m app.seed_community_sensors from backend dir with venv active.",
+    "8. Add /home/vishwas/Desktop/CC/community-air-quality/backend/data/sensor_tokens.json to .gitignore if not already covered by data/ pattern."
+  ],
+  "acceptance_criteria": [
+    "Backend tests pass: pytest runs without errors",
+    "Two new tables exist in SQLite: community_sensors and community_sensor_readings",
+    "Seed script creates 10 sensors and sensor_tokens.json file exists with 10 entries",
+    "POST /api/v1/community/sensors/readings with valid Bearer token stores reading and returns 201",
+    "POST /api/v1/community/sensors/readings with invalid token returns 401",
+    "POST /api/v1/community/sensors/readings with duplicate sequence_number returns 400",
+    "GET /api/v1/community/sensors returns list of sensors with latest readings",
+    "GET /api/v1/community/map returns map-ready data for all sensors"
+  ],
+  "verification": [
+    "cd /home/vishwas/Desktop/CC/community-air-quality/backend && source .venv/bin/activate && pytest -v",
+    "cd /home/vishwas/Desktop/CC/community-air-quality/backend && source .venv/bin/activate && python -m app.seed_community_sensors",
+    "cd /home/vishwas/Desktop/CC/community-air-quality/backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000 (in background), then curl http://localhost:8000/api/v1/community/sensors to verify API responds",
+    "Manual test: POST reading with valid token from sensor_tokens.json, verify 201 response and reading appears in GET /api/v1/community/sensors/{sensor_id}/readings"
+  ],
+  "blocked_reason": null,
+  "findings": "Implementation successful. Note: Used bcrypt library directly instead of passlib.hash.bcrypt due to compatibility issues with bcrypt 5.0.0. Token length reduced to 24 chars (from 32) to stay within bcrypt's 72-byte limit. All endpoints implemented and tested. Database tables created with proper indexes and constraints. Token file (sensor_tokens.json) created in backend/data/ directory (already gitignored). All existing tests pass."
+}

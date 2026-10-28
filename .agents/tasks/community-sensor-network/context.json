@@ -1,0 +1,28 @@
+{
+  "project_type": "FastAPI backend (SQLite) + Next.js 15/React 19/TypeScript frontend, Leaflet maps",
+  "language": "Python 3 (backend), TypeScript (frontend)",
+  "build_system": "pip + venv for backend, npm for frontend",
+  "test_framework": "pytest (backend), no frontend tests currently",
+  "build_command": "Frontend: cd frontend && npm run build",
+  "test_command": "Backend: cd backend && source .venv/bin/activate && pytest",
+  "verification_instructions": "1. Backend tests pass (pytest). 2. Frontend builds (npm run build). 3. Seed script creates 10 sensors. 4. Simulator submits readings and logs success. 5. API returns expected sensor data. 6. Invalid token rejected with 401. 7. Database contains readings in both tables. 8. Spike scenario changes readings. 9. Disconnect makes sensor offline. 10. Frontend shows live updates every 5s.",
+  "snapshot_or_generated_files": null,
+  "environment_constraints": "Use absolute paths. Backend virtualenv at /home/vishwas/Desktop/CC/community-air-quality/backend/.venv. Database at /home/vishwas/Desktop/CC/community-air-quality/backend/data/airquality.db (created on startup). Never introduce MQTT, Kafka, Redis or WebSockets. Use HTTP polling only.",
+  "contribution_requirements": "Match existing code style. Use SQLAlchemy models like in app/models.py. Follow router patterns in app/routers/. Reuse existing Leaflet map component. Use existing seed.py pattern for data seeding. Hash tokens using werkzeug.security or passlib. Follow existing database.py initialization pattern.",
+  "key_patterns": "Models: Use SQLAlchemy 2.0 mapped_column style (see models.py). Routers: Depend on get_db, return Pydantic schemas. Database init: create_session_factory creates tables, seeds if empty (see database.py). Seed pattern: Insert model instances, session.add_all(), session.commit() (see seed.py). Frontend: Server-side API calls in Next.js route handlers or server components, client components for interactivity.",
+  "relevant_files": [
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/models.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/database.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/seed.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/main.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/routers/stations.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/routers/locations.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/app/schemas.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/tests/conftest.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/backend/tests/test_api.py",
+    "/home/vishwas/Desktop/CC/community-air-quality/frontend/src/components/station-map.tsx",
+    "/home/vishwas/Desktop/CC/community-air-quality/frontend/src/lib/types.ts",
+    "/home/vishwas/Desktop/CC/community-air-quality/frontend/package.json"
+  ],
+  "directory_structure": "backend/app/ (models.py, schemas.py, database.py, seed.py, main.py, routers/, services/), backend/tests/, frontend/src/ (app/, components/, lib/)"
+}

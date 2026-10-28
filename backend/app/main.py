@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import create_session_factory
-from app.routers import compare, health, jobs, locations, stations
+from app.routers import compare, community_sensors, health, jobs, locations, stations
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(stations.router, prefix="/api/v1")
     app.include_router(compare.router, prefix="/api/v1")
     app.include_router(jobs.router, prefix="/api/v1")
+    app.include_router(community_sensors.router, prefix="/api/v1")
 
     @app.get("/")
     def root():

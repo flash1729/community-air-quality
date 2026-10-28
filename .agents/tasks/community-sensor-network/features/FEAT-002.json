@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Simulator: Python script that loads 10 sensors from sensor_tokens.json, maintains per-sensor state (PM2.5, PM10, temp, humidity, sequence number), generates realistic gradually-changing measurements, submits authenticated HTTP POST requests to backend every 5-10 seconds. Implements scenarios: pollution spike, sensor disconnect/reconnect. Control via CLI arguments. Independent of FEAT-001 backend API but requires it to be running for end-to-end testing.",
+  "status": "pending",
+  "steps": [
+    "1. Create /home/vishwas/Desktop/CC/community-air-quality/backend/app/simulator/ directory and __init__.py.",
+    "2. Create /home/vishwas/Desktop/CC/community-air-quality/backend/app/simulator/virtual_sensors.py. Import json, time, random, datetime, requests, pathlib. Define VirtualSensor class with attributes: sensor_id, name, token, latitude, longitude, pm25 (initial random 20-80), pm10 (initial 1.5-2.0 * pm25), temperature (initial random 22-30), humidity (initial random 40-70), sequence_number (starts at 1), active (bool), last_spike_time (None).",
+    "3. Implement VirtualSensor.generate_reading() method: gradually adjust pm25 by random(-5, +5) keeping in bounds [10, 120], pm10 = pm25 * random(1.3, 2.0), temp by random(-1, +1) keeping [22, 36], humidity by random(-3, +3) keeping [35, 85]. Increment sequence_number. Return dict ready for API submission.",
+    "4. Implement VirtualSensor.submit_reading(api_base_url: str) method: POST to {api_base_url}/api/v1/community/sensors/readings with headers {'Authorization': f'Bearer {self.token}', 'Content-Type': 'application/json'}, body from generate_reading(). Log success (sensor_id, sequence, response status) or failure (sensor_id, error). Handle exceptions gracefully.",
+    "5. Implement load_sensors(tokens_file_path: str) function: read sensor_tokens.json, query GET /api/v1/community/sensors to get sensor metadata (name, lat, lon), create VirtualSensor instances, return list.",
+    "6. Implement simulate_spike(sensor: VirtualSensor, duration_seconds: int): temporarily raise pm25 by 40-80 for duration, then restore. Track last_spike_time to avoid overlapping spikes.",
+    "7. Implement main simulation loop: load sensors, loop indefinitely with sleep(5-10 random), for each active sensor call submit_reading(), log overall stats every 10 submissions (total sent, success rate).",
+    "8. Add CLI control with argparse: --api-url (default http://localhost:8000), --tokens-file (default ../data/sensor_tokens.json relative to script), --spike SENSOR_ID (trigger spike for sensor), --disconnect SENSOR_ID (set sensor.active=False), --reconnect SENSOR_ID (set sensor.active=True), --duration SECONDS (for spike). Main mode: run simulation loop. Spike/disconnect/reconnect modes: modify running state (requires shared state mechanism like signal file or just document as restart-with-flag for MVP).",
+    "9. Document in script docstring: 'Run from backend/ with venv active: python -m app.simulator.virtual_sensors. Requires backend API running on --api-url. Reads tokens from --tokens-file. Ctrl+C to stop.'"
+  ],
+  "acceptance_criteria": [
+    "Script loads 10 sensors from sensor_tokens.json and retrieves their metadata from API",
+    "Script submits readings every 5-10 seconds with Bearer token authentication",
+    "Readings show gradual PM2.5/PM10 changes (+/- 5 per iteration), not random jumps",
+    "Log output shows sensor_id, sequence_number, and HTTP response status for each submission",
+    "Spike scenario temporarily raises PM2.5 by 40-80 for specified sensor",
+    "Disconnect scenario stops submissions for specified sensor",
+    "Reconnect scenario resumes submissions for specified sensor",
+    "Script handles API errors gracefully (logs error, continues with other sensors)"
+  ],
+  "verification": [
+    "cd /home/vishwas/Desktop/CC/community-air-quality/backend && source .venv/bin/activate && python -m app.seed_community_sensors (ensure sensors and tokens exist)",
+    "cd /home/vishwas/Desktop/CC/community-air-quality/backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000 (start backend in separate terminal)",
+    "cd /home/vishwas/Desktop/CC/community-air-quality/backend && source .venv/bin/activate && python -m app.simulator.virtual_sensors --api-url http://localhost:8000 (run for 30 seconds, verify log shows successful submissions)",
+    "Check GET http://localhost:8000/api/v1/community/sensors shows sensors with last_seen updated within last 10 seconds",
+    "Check GET http://localhost:8000/api/v1/community/sensors/SENSOR_001/readings shows multiple readings with incrementing sequence_number",
+    "Test spike: run simulator with --spike SENSOR_001 in separate invocation, verify SENSOR_001 PM2.5 increases significantly"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

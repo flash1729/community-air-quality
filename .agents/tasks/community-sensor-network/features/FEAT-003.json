@@ -1,0 +1,41 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Frontend: Community sensor network dashboard page at /community with live map, metrics, and sensor details. Reuses existing Leaflet map component from station-map.tsx. Displays markers colored by PM2.5 level (green <30, yellow 30-60, orange 60-100, red >100, grey if offline >2 min). Polls backend every 5 seconds for live updates. Shows dashboard metrics (total/online/offline sensor counts), selected sensor details panel with latest reading, and Recharts time-series chart of PM2.5/PM10 history.",
+  "status": "pending",
+  "steps": [
+    "1. Add CommunitySensor and CommunitySensorReading types to /home/vishwas/Desktop/CC/community-air-quality/frontend/src/lib/types.ts matching backend schemas.",
+    "2. Create /home/vishwas/Desktop/CC/community-air-quality/frontend/src/app/community/page.tsx as client component. Fetch /api/v1/community/sensors on mount and every 5 seconds with useEffect and setInterval (return cleanup to clearInterval). State: sensors (CommunitySensor[]), selectedSensorId (string|null), loading (bool).",
+    "3. Implement dashboard metrics section at top: total sensors count, online count (last_seen within 2 minutes of now), offline count (total - online), latest readings count (sum of sensors with latest_reading not null). Use grid layout, card styling consistent with existing components.",
+    "4. Create /home/vishwas/Desktop/CC/community-air-quality/frontend/src/components/community/CommunitySensorMap.tsx following pattern from station-map.tsx. Adapt to use CommunitySensor type. Marker color logic: if latest_reading exists and last_seen within 2 min, color by PM2.5 (green <30, yellow 30-60, orange 60-100, red >100); else grey (offline). Popup shows sensor name, location, PM2.5, PM10, temp, humidity, last_seen timestamp, status. OnClick sets selectedSensorId.",
+    "5. Create /home/vishwas/Desktop/CC/community-air-quality/frontend/src/components/community/SensorDetails.tsx: displays selected sensor info (name, ID, coordinates, status, last_seen), latest reading (PM2.5, PM10, temp, humidity, recorded_at) in card format, button to fetch history.",
+    "6. Create /home/vishwas/Desktop/CC/community-air-quality/frontend/src/components/community/SensorHistory.tsx: on load or when selected sensor changes, fetch GET /api/v1/community/sensors/{sensor_id}/readings?limit=50. Display Recharts LineChart with two lines: PM2.5 (blue) and PM10 (orange), x-axis recorded_at (formatted time), y-axis concentration. Handle loading/error states. If no sensor selected, show placeholder.",
+    "7. Layout page.tsx: header 'Community Sensor Network', metrics dashboard, map (left 60%), details + history panel (right 40% when sensor selected, else show 'Select a sensor on the map'). Use Tailwind grid/flex layout consistent with existing pages.",
+    "8. Add navigation link to /community in /home/vishwas/Desktop/CC/community-air-quality/frontend/src/components/site-header.tsx if not already present.",
+    "9. Test responsive layout and live updates: open page, verify map shows 10 sensors, verify metrics update every 5s, verify selecting sensor shows details, verify chart displays historical data, verify color changes when simulator runs spike scenario."
+  ],
+  "acceptance_criteria": [
+    "Frontend builds without errors: npm run build succeeds",
+    "Page /community renders with map showing 10 sensor markers",
+    "Markers colored correctly by PM2.5 level (green/yellow/orange/red/grey)",
+    "Dashboard metrics display total, online, offline counts accurately",
+    "Clicking marker selects sensor and displays details panel",
+    "Details panel shows latest reading values and last_seen timestamp",
+    "History chart displays PM2.5 and PM10 lines with x-axis as time",
+    "Page polls backend every 5 seconds and updates metrics/map/details",
+    "Offline sensors (last_seen >2 min ago) shown as grey markers",
+    "When simulator runs, updates appear within 5 seconds on frontend"
+  ],
+  "verification": [
+    "cd /home/vishwas/Desktop/CC/community-air-quality/frontend && npm run build (verify no TypeScript or build errors)",
+    "cd /home/vishwas/Desktop/CC/community-air-quality/frontend && npm run dev (start dev server)",
+    "Open http://localhost:3000/community in browser, verify 10 markers appear on map",
+    "With simulator running in background, observe metrics update every 5 seconds",
+    "Click a marker, verify details panel appears with sensor info",
+    "Verify chart shows historical readings with two lines (PM2.5, PM10)",
+    "Stop simulator for one sensor, wait 2+ minutes, verify that sensor's marker turns grey",
+    "Trigger spike in simulator, verify affected sensor's marker color changes within 5-10 seconds"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

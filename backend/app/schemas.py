@@ -216,3 +216,45 @@ class RefreshOut(BaseModel):
     message: str
     stations_updated: int = 0
     measurements_stored: int = 0
+
+
+class CommunitySensorReadingOut(BaseModel):
+    sensor_id: str
+    sequence_number: int
+    pm25: float
+    pm10: float
+    temperature: float | None = None
+    humidity: float | None = None
+    recorded_at: datetime
+    received_at: datetime
+    quality_status: str
+
+
+class CommunitySensorOut(BaseModel):
+    id: str
+    name: str
+    latitude: float
+    longitude: float
+    sensor_type: str
+    status: str
+    created_at: datetime
+    last_seen: datetime | None = None
+    latest_reading: CommunitySensorReadingOut | None = None
+
+
+class CommunitySensorReadingSubmit(BaseModel):
+    sensor_id: str
+    sequence_number: int
+    pm25: float
+    pm10: float
+    temperature: float | None = None
+    humidity: float | None = None
+    recorded_at: datetime
+
+
+class CommunitySensorRegister(BaseModel):
+    sensor_id: str
+    name: str
+    latitude: float
+    longitude: float
+    sensor_type: str = "virtual"
