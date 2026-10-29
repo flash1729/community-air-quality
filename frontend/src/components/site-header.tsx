@@ -1,6 +1,6 @@
 "use client";
 
-import { History, Info, LayoutDashboard, Map, Moon, Sun, Wind } from "lucide-react";
+import { History, Info, LayoutDashboard, Map, Moon, Radio, Sun, Wind } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 const LINKS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/explore", label: "Explore", icon: Map },
+  { href: "/community", label: "Community", icon: Radio },
   { href: "/history", label: "History", icon: History },
   { href: "/about", label: "About", icon: Info },
 ];

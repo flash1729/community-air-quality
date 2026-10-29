@@ -146,3 +146,27 @@ export type Overview = {
   history: History;
   sources: string[];
 };
+
+export type CommunitySensorReading = {
+  sensor_id: string;
+  sequence_number: number;
+  pm25: number;
+  pm10: number;
+  temperature: number | null;
+  humidity: number | null;
+  recorded_at: string;
+  received_at: string;
+  quality_status: string;
+};
+
+export type CommunitySensor = {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  sensor_type: string;
+  status: string;
+  created_at: string;
+  last_seen: string | null;
+  latest_reading: CommunitySensorReading | null;
+};

@@ -459,6 +459,46 @@
   transform: scale(1.18);
 }
 
+.sensor-pin {
+  position: relative;
+  display: grid;
+  height: 36px;
+  width: 36px;
+  place-items: center;
+}
+
+.sensor-pin__pulse {
+  position: absolute;
+  inset: 4px;
+  border-radius: 9999px;
+  background: var(--pin);
+  animation: pin-pulse 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.sensor-pin__dot {
+  position: relative;
+  display: grid;
+  height: 30px;
+  min-width: 30px;
+  place-items: center;
+  border-radius: 9999px;
+  padding: 0 4px;
+  background: var(--pin);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.65);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  transition: transform 0.2s ease;
+}
+
+.sensor-pin--active .sensor-pin__dot,
+.sensor-pin:hover .sensor-pin__dot {
+  transform: scale(1.18);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Frontend: Community sensor network dashboard page at /community with live map, metrics, and sensor details. Reuses existing Leaflet map component from station-map.tsx. Displays markers colored by PM2.5 level (green <30, yellow 30-60, orange 60-100, red >100, grey if offline >2 min). Polls backend every 5 seconds for live updates. Shows dashboard metrics (total/online/offline sensor counts), selected sensor details panel with latest reading, and Recharts time-series chart of PM2.5/PM10 history.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "1. Add CommunitySensor and CommunitySensorReading types to /home/vishwas/Desktop/CC/community-air-quality/frontend/src/lib/types.ts matching backend schemas.",
     "2. Create /home/vishwas/Desktop/CC/community-air-quality/frontend/src/app/community/page.tsx as client component. Fetch /api/v1/community/sensors on mount and every 5 seconds with useEffect and setInterval (return cleanup to clearInterval). State: sensors (CommunitySensor[]), selectedSensorId (string|null), loading (bool).",
@@ -37,5 +37,5 @@
     "Trigger spike in simulator, verify affected sensor's marker color changes within 5-10 seconds"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Implementation successful. Created community sensor dashboard at /community with live map, sensor details, and historical charts. Components: CommunitySensorMap.tsx (adapts station-map pattern with color-coded markers by PM2.5 levels: green <30, yellow 30-60, orange 60-100, red >100, grey offline), SensorDetails.tsx (displays sensor info and latest readings in card format), SensorHistory.tsx (Recharts LineChart with PM2.5 and PM10 lines, fetches last 50 readings). Main page polls backend every 5 seconds for live updates using useEffect + setInterval with cleanup. Dashboard metrics show total/online/offline sensors and readings count. Offline detection: last_seen >2 minutes from now. Responsive layout with Tailwind grid (map 60%, details panel 40%). Added navigation link to site-header.tsx with Radio icon. Added sensor-pin CSS styles following aqi-pin pattern. Frontend builds without errors. All acceptance criteria met."
 }
