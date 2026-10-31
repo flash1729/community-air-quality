@@ -1,7 +1,7 @@
 {
   "task_id": "community-sensor-network",
   "task_description": "Community Sensor Network proof-of-concept: simulated IoT air quality sensors post readings to FastAPI backend (SQLite), displayed live on Next.js/React/TS frontend with Leaflet map using 5-second HTTP polling",
-  "status": "pending",
+  "status": "completed",
   "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
   "blocked_reason": null
 }

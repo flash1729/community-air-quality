@@ -138,6 +138,92 @@ community_air_quality_project_documentation.md
 
 The database file is created at `backend/data/airquality.db` on first launch. Delete that file to rebuild the sample dataset. New tables are created on startup; existing rows are kept.
 
+## Community Sensor Network
+
+The Community Sensor Network demonstrates a distributed air quality monitoring system where simulated IoT sensors post measurements to the backend and appear live on an interactive map.
+
+**Important:** This feature uses **simulated data from virtual sensors**, not real hardware. The purpose is to demonstrate the complete device-to-application architecture.
+
+### What it demonstrates
+
+- **Virtual sensors:** 10 simulated IoT devices representing community-operated air quality sensors across Bengaluru neighborhoods (Koramangala, Indiranagar, HSR Layout, Whitefield, Marathahalli, Electronic City, Jayanagar, MG Road, Hebbal, Yelahanka)
+- **Device authentication:** Each sensor authenticates using a Bearer token (bcrypt-hashed in the database)
+- **Real-time ingestion:** Sensors POST readings every 5-10 seconds with gradually-changing PM2.5, PM10, temperature, and humidity values
+- **Live dashboard:** `/community` page displays all sensors on a Leaflet map with color-coded markers (green/yellow/orange/red by PM2.5 level, grey when offline)
+- **Polling updates:** Frontend polls the backend every 5 seconds for live metrics and readings
+- **Sensor details:** Click any marker to view latest readings and historical PM2.5/PM10 trends (Recharts line chart)
+- **Simulation scenarios:** Pollution spikes and sensor disconnects can be triggered via CLI flags
+
+### How to seed sensors
+
+From the `backend` directory with the virtual environment active:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m app.seed_community_sensors
+```
+
+This creates 10 community sensors in the database and generates authentication tokens in `backend/data/sensor_tokens.json` (gitignored).
+
+### How to run the simulator
+
+Start the backend API first, then run the simulator in a separate terminal:
+
+```bash
+# Terminal 1: Backend API
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2: Simulator
+cd backend
+source .venv/bin/activate
+python -m app.simulator.virtual_sensors --api-url http://localhost:8000
+```
+
+The simulator will load tokens from `backend/data/sensor_tokens.json`, fetch sensor metadata, and begin submitting readings every 5-10 seconds. Press Ctrl+C to stop.
+
+**Simulation scenarios:**
+
+```bash
+# Trigger pollution spike for SENSOR_001 (increases PM2.5 by 40-80 for 60 seconds)
+python -m app.simulator.virtual_sensors --api-url http://localhost:8000 --spike SENSOR_001 --duration 60
+
+# Disconnect a sensor (stops submissions)
+python -m app.simulator.virtual_sensors --api-url http://localhost:8000 --disconnect SENSOR_003
+
+# Reconnect a sensor (resumes submissions)
+python -m app.simulator.virtual_sensors --api-url http://localhost:8000 --reconnect SENSOR_003
+```
+
+### How to view the community page
+
+With the backend API and simulator running, start the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open http://localhost:3000/community
+
+### What the simulation shows
+
+- **Dashboard metrics:** Total sensors, online sensors (last seen <2 minutes ago), offline sensors, total readings
+- **Interactive map:** 10 sensor markers colored by PM2.5 level:
+  - Green: <30 µg/m³ (Good)
+  - Yellow: 30-60 µg/m³ (Moderate)
+  - Orange: 60-100 µg/m³ (Unhealthy for sensitive groups)
+  - Red: >100 µg/m³ (Unhealthy)
+  - Grey: Offline (no data for >2 minutes)
+- **Sensor details panel:** When you click a marker, view the sensor's name, ID, coordinates, status, latest reading values (PM2.5, PM10, temperature, humidity), and timestamp
+- **Historical chart:** PM2.5 and PM10 trends over the last 50 readings with time on the x-axis
+- **Live updates:** Metrics, map markers, and readings refresh every 5 seconds automatically
+- **Spike visualization:** When a spike is triggered, the affected sensor's marker color changes within 5-10 seconds as PM2.5 increases
+
+The feature demonstrates how community-operated sensors could provide neighborhood-level air quality coverage beyond official monitoring stations.
+
 ## Still ahead
 
 A database that survives scale-to-zero, without turning on Cloud SQL. GitHub Actions does not deploy the API yet. Both can wait until a free persistent disk is confirmed.
