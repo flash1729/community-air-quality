@@ -8,7 +8,7 @@ Requires backend API running on --api-url. Reads tokens from --tokens-file.
 Ctrl+C to stop.
 
 Examples:
-  python -m app.simulator.virtual_sensors --api-url http://localhost:8000
+  python -m app.simulator.virtual_sensors --api-url http://localhost:8001
   python -m app.simulator.virtual_sensors --spike SENSOR_001 --duration 60
   python -m app.simulator.virtual_sensors --disconnect SENSOR_002
   python -m app.simulator.virtual_sensors --reconnect SENSOR_002
@@ -232,8 +232,8 @@ def main():
     
     parser.add_argument(
         '--api-url',
-        default='http://localhost:8000',
-        help='Backend API base URL (default: http://localhost:8000)'
+        default='http://localhost:8001',
+        help='Backend API base URL (default: http://localhost:8001)'
     )
     
     parser.add_argument(

@@ -39,7 +39,7 @@ export default function SensorHistory({ sensorId }: { sensorId: string | null })
       setError(null);
       try {
         const response = await fetch(
-          `http://localhost:8000/api/v1/community/sensors/${sensorId}/readings?limit=50`
+          `/api/v1/community/sensors/${sensorId}/readings?limit=50`
         );
         if (!response.ok) {
           throw new Error(`Failed to fetch readings: ${response.statusText}`);

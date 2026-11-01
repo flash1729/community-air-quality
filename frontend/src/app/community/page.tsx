@@ -28,7 +28,7 @@ export default function CommunityPage() {
   useEffect(() => {
     const fetchSensors = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/v1/community/sensors");
+        const response = await fetch("/api/v1/community/sensors");
         if (!response.ok) {
           throw new Error(`Failed to fetch sensors: ${response.statusText}`);
         }
