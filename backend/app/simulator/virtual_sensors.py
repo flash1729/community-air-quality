@@ -71,7 +71,7 @@ class VirtualSensor:
         humidity_change = random.uniform(-3, 3)
         self.humidity = max(35, min(85, self.humidity + humidity_change))
         
-        # Build reading payload
+        # Build reading payload with coordinates
         reading = {
             "sensor_id": self.sensor_id,
             "sequence_number": self.sequence_number,
@@ -79,6 +79,8 @@ class VirtualSensor:
             "pm10": round(self.pm10, 2),
             "temperature": round(self.temperature, 2),
             "humidity": round(self.humidity, 2),
+            "latitude": self.latitude,
+            "longitude": self.longitude,
             "recorded_at": datetime.now(timezone.utc).isoformat()
         }
         

@@ -84,21 +84,26 @@ export default function CommunitySensorMap({
   activeId?: string | null;
   onSelect?: (id: string) => void;
 }) {
+  // Filter out sensors without valid coordinates
+  const validSensors = sensors.filter(
+    (sensor) => sensor.latitude !== null && sensor.longitude !== null
+  );
+
   const markers = useRef(new Map<string, L.Marker>());
   const mapRef = useRef<L.Map | null>(null);
   const icons = useMemo(
-    () => new Map(sensors.map((sensor) => [sensor.id, sensorIcon(sensor, sensor.id === activeId)])),
-    [sensors, activeId],
+    () => new Map(validSensors.map((sensor) => [sensor.id, sensorIcon(sensor, sensor.id === activeId)])),
+    [validSensors, activeId],
   );
 
   useEffect(() => {
     if (activeId === null) return;
-    const sensor = sensors.find((item) => item.id === activeId);
+    const sensor = validSensors.find((item) => item.id === activeId);
     const map = mapRef.current;
-    if (!sensor || !map) return;
+    if (!sensor || !map || sensor.latitude === null || sensor.longitude === null) return;
     map.flyTo([sensor.latitude, sensor.longitude], Math.max(map.getZoom(), 12), { duration: 0.7 });
     markers.current.get(activeId)?.openPopup();
-  }, [activeId, sensors]);
+  }, [activeId, validSensors]);
 
   return (
     <MapContainer ref={mapRef} center={center} zoom={11} scrollWheelZoom={false} className="h-full w-full">
@@ -106,11 +111,11 @@ export default function CommunitySensorMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitSensors sensors={sensors} center={center} />
-      {sensors.map((sensor) => (
+      <FitSensors sensors={validSensors} center={center} />
+      {validSensors.map((sensor) => (
         <Marker
           key={sensor.id}
-          position={[sensor.latitude, sensor.longitude]}
+          position={[sensor.latitude!, sensor.longitude!]}
           icon={icons.get(sensor.id)}
           title={sensor.name}
           ref={(marker) => {
@@ -123,7 +128,7 @@ export default function CommunitySensorMap({
             <div className="min-w-[14rem]">
               <div className="pr-5 text-sm font-semibold leading-5 text-ink">{sensor.name}</div>
               <div className="mt-1 font-mono text-[11px] text-muted">
-                {sensor.latitude.toFixed(4)}, {sensor.longitude.toFixed(4)}
+                {sensor.latitude!.toFixed(4)}, {sensor.longitude!.toFixed(4)}
               </div>
               <div className="mt-2 text-xs">
                 <span
@@ -135,6 +140,11 @@ export default function CommunitySensorMap({
                 >
                   {getSensorStatus(sensor)}
                 </span>
+                {sensor.source === "contributed" && (
+                  <span className="ml-2 inline-block rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 font-medium dark:bg-blue-900/30 dark:text-blue-400">
+                    Community Contributed
+                  </span>
+                )}
               </div>
               {sensor.latest_reading && (
                 <ul className="mt-3 space-y-1 text-xs">

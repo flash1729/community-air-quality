@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import bcrypt
+import math
 import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import CommunitySensor, CommunitySensorReading
@@ -15,6 +17,8 @@ from app.schemas import (
     CommunitySensorReadingOut,
     CommunitySensorReadingSubmit,
     CommunitySensorRegister,
+    ContributedSensorRegisterRequest,
+    ContributedSensorRegisterResponse,
 )
 from app.timeutils import utcnow
 
@@ -32,6 +36,8 @@ def _sensor_to_out(sensor: CommunitySensor, latest_reading: CommunitySensorReadi
             pm10=latest_reading.pm10,
             temperature=latest_reading.temperature,
             humidity=latest_reading.humidity,
+            latitude=latest_reading.latitude,
+            longitude=latest_reading.longitude,
             recorded_at=latest_reading.recorded_at,
             received_at=latest_reading.received_at,
             quality_status=latest_reading.quality_status,
@@ -43,6 +49,10 @@ def _sensor_to_out(sensor: CommunitySensor, latest_reading: CommunitySensorReadi
         longitude=sensor.longitude,
         sensor_type=sensor.sensor_type,
         status=sensor.status,
+        source=sensor.source,
+        hardware_id=sensor.hardware_id,
+        hardware_model=sensor.hardware_model,
+        contributor_name=sensor.contributor_name,
         created_at=sensor.created_at,
         last_seen=sensor.last_seen,
         latest_reading=reading_out,
@@ -89,6 +99,64 @@ def register_sensor(data: CommunitySensorRegister, db: Session = Depends(get_db)
     return {"sensor_id": sensor.id, "token": token, "message": "Sensor registered successfully. Store this token securely."}
 
 
+@router.post("/sensors/register", status_code=status.HTTP_201_CREATED, response_model=ContributedSensorRegisterResponse)
+def register_contributed_sensor(data: ContributedSensorRegisterRequest, db: Session = Depends(get_db)):
+    """Register a new user-contributed sensor without requiring location."""
+    max_attempts = 3
+    
+    for attempt in range(max_attempts):
+        try:
+            # Generate sequential sensor ID
+            result = db.execute(
+                text("SELECT MAX(CAST(SUBSTR(id, 8) AS INTEGER)) FROM community_sensors WHERE id LIKE 'SENSOR_%'")
+            )
+            max_num = result.scalar()
+            next_num = (max_num or 10) + 1
+            sensor_id = f"SENSOR_{next_num:03d}"
+            
+            # Generate authentication token (32 bytes for contributed sensors)
+            token = secrets.token_urlsafe(32)
+            token_hash = bcrypt.hashpw(token.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
+            # Create sensor with source='contributed', no location yet
+            sensor = CommunitySensor(
+                id=sensor_id,
+                name=data.name.strip(),
+                latitude=None,
+                longitude=None,
+                sensor_type="contributed",
+                auth_token_hash=token_hash,
+                status="active",
+                source="contributed",
+                hardware_id=data.hardware_id.strip(),
+                hardware_model=data.hardware_model.strip(),
+                contributor_name=data.contributor_name.strip(),
+                created_at=utcnow(),
+                last_seen=None,
+            )
+            db.add(sensor)
+            db.commit()
+            
+            return ContributedSensorRegisterResponse(
+                sensor_id=sensor_id,
+                token=token,
+                ingestion_url="/api/v1/community/sensors/readings",
+                message="Sensor registered successfully. Store the token securely; it cannot be retrieved later."
+            )
+            
+        except IntegrityError:
+            db.rollback()
+            if attempt < max_attempts - 1:
+                continue
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to generate unique sensor ID after multiple attempts."
+                )
+    
+    raise HTTPException(status_code=500, detail="Sensor registration failed.")
+
+
 @router.post("/sensors/readings", status_code=status.HTTP_201_CREATED)
 def submit_reading(
     data: CommunitySensorReadingSubmit,
@@ -109,6 +177,27 @@ def submit_reading(
     if sensor.status != "active":
         raise HTTPException(status_code=403, detail="Sensor is not active.")
     
+    # Validate coordinates for contributed sensors
+    if sensor.source == "contributed":
+        if data.latitude is None or data.longitude is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Latitude and longitude required for contributed sensors."
+            )
+    
+    # Validate coordinates if provided
+    if data.latitude is not None:
+        if not math.isfinite(data.latitude):
+            raise HTTPException(status_code=400, detail="Invalid latitude: must be a finite number.")
+        if data.latitude < -90 or data.latitude > 90:
+            raise HTTPException(status_code=400, detail="Invalid latitude: must be between -90 and 90.")
+    
+    if data.longitude is not None:
+        if not math.isfinite(data.longitude):
+            raise HTTPException(status_code=400, detail="Invalid longitude: must be a finite number.")
+        if data.longitude < -180 or data.longitude > 180:
+            raise HTTPException(status_code=400, detail="Invalid longitude: must be between -180 and 180.")
+    
     # Validate measurements
     if data.pm25 < 0 or data.pm10 < 0:
         raise HTTPException(status_code=400, detail="PM2.5 and PM10 must be non-negative.")
@@ -118,6 +207,9 @@ def submit_reading(
     
     if data.pm10 >= 1000:
         raise HTTPException(status_code=400, detail="PM10 value out of reasonable range (must be < 1000).")
+    
+    if data.temperature is not None and (data.temperature < -40 or data.temperature > 60):
+        raise HTTPException(status_code=400, detail="Temperature must be between -40 and 60 degrees Celsius.")
     
     if data.humidity is not None and (data.humidity < 0 or data.humidity > 100):
         raise HTTPException(status_code=400, detail="Humidity must be between 0 and 100.")
@@ -131,7 +223,7 @@ def submit_reading(
     if existing:
         raise HTTPException(status_code=400, detail="Duplicate sequence number.")
     
-    # Create reading
+    # Create reading with coordinates
     reading = CommunitySensorReading(
         sensor_id=data.sensor_id,
         sequence_number=data.sequence_number,
@@ -139,6 +231,8 @@ def submit_reading(
         pm10=data.pm10,
         temperature=data.temperature,
         humidity=data.humidity,
+        latitude=data.latitude,
+        longitude=data.longitude,
         recorded_at=data.recorded_at,
         received_at=utcnow(),
         quality_status="accepted",
@@ -147,6 +241,11 @@ def submit_reading(
     
     # Update sensor last_seen
     sensor.last_seen = utcnow()
+    
+    # Update sensor location if coordinates provided
+    if data.latitude is not None and data.longitude is not None:
+        sensor.latitude = data.latitude
+        sensor.longitude = data.longitude
     
     db.commit()
     
@@ -222,6 +321,8 @@ def get_sensor_readings(
             pm10=r.pm10,
             temperature=r.temperature,
             humidity=r.humidity,
+            latitude=r.latitude,
+            longitude=r.longitude,
             recorded_at=r.recorded_at,
             received_at=r.received_at,
             quality_status=r.quality_status,
@@ -233,7 +334,12 @@ def get_sensor_readings(
 @router.get("/map")
 def get_map_data(db: Session = Depends(get_db)):
     """Get all sensors with latest readings formatted for map display."""
-    sensors = db.scalars(select(CommunitySensor)).all()
+    # Only include sensors with valid coordinates
+    sensors = db.scalars(
+        select(CommunitySensor)
+        .where(CommunitySensor.latitude.is_not(None))
+        .where(CommunitySensor.longitude.is_not(None))
+    ).all()
     
     map_data = []
     for sensor in sensors:
@@ -251,6 +357,7 @@ def get_map_data(db: Session = Depends(get_db)):
             "longitude": sensor.longitude,
             "sensor_type": sensor.sensor_type,
             "status": sensor.status,
+            "source": sensor.source,
             "last_seen": sensor.last_seen,
         }
         

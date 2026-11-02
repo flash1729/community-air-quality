@@ -86,12 +86,23 @@ def seed_community_sensors(session: Session) -> dict[str, str]:
     """Seed community sensors and return mapping of sensor_id to plaintext token."""
     tokens = {}
     sensors_to_add = []
+    sensors_to_update = []
     
     for sensor_data in SENSORS:
         # Check if sensor already exists
         existing = session.get(CommunitySensor, sensor_data["id"])
         if existing:
-            print(f"Sensor {sensor_data['id']} already exists, skipping.")
+            print(f"Sensor {sensor_data['id']} already exists.", end="")
+            # Update source if it's NULL or empty
+            if not existing.source or existing.source == '':
+                existing.source = 'seed'
+                existing.hardware_id = None
+                existing.hardware_model = None
+                existing.contributor_name = None
+                sensors_to_update.append(existing)
+                print(" Updating source='seed'.")
+            else:
+                print(" Skipping.")
             continue
         
         # Generate token and hash it using bcrypt
@@ -101,7 +112,7 @@ def seed_community_sensors(session: Session) -> dict[str, str]:
         # Store plaintext token for later export
         tokens[sensor_data["id"]] = token
         
-        # Create sensor
+        # Create sensor with source='seed'
         sensor = CommunitySensor(
             id=sensor_data["id"],
             name=sensor_data["name"],
@@ -110,6 +121,10 @@ def seed_community_sensors(session: Session) -> dict[str, str]:
             sensor_type="virtual",
             auth_token_hash=token_hash,
             status="active",
+            source="seed",
+            hardware_id=None,
+            hardware_model=None,
+            contributor_name=None,
             created_at=utcnow(),
             last_seen=None,
         )
@@ -119,8 +134,13 @@ def seed_community_sensors(session: Session) -> dict[str, str]:
         session.add_all(sensors_to_add)
         session.commit()
         print(f"Created {len(sensors_to_add)} community sensors.")
-    else:
-        print("No new sensors to create.")
+    
+    if sensors_to_update:
+        session.commit()
+        print(f"Updated {len(sensors_to_update)} existing sensors.")
+    
+    if not sensors_to_add and not sensors_to_update:
+        print("No new sensors to create or update.")
     
     return tokens
 

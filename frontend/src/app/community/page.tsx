@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
+import AddSensorModal from "@/components/community/AddSensorModal";
 import SensorDetails from "@/components/community/SensorDetails";
 import SensorHistory from "@/components/community/SensorHistory";
 import type { CommunitySensor } from "@/lib/types";
@@ -21,26 +22,27 @@ export default function CommunityPage() {
   const [sensors, setSensors] = useState<CommunitySensor[]>([]);
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const selectedSensor = sensors.find((s) => s.id === selectedSensorId) || null;
 
   // Fetch sensors from backend
-  useEffect(() => {
-    const fetchSensors = async () => {
-      try {
-        const response = await fetch("/api/v1/community/sensors");
-        if (!response.ok) {
-          throw new Error(`Failed to fetch sensors: ${response.statusText}`);
-        }
-        const data = await response.json();
-        setSensors(data);
-      } catch (err) {
-        console.error("Error fetching sensors:", err);
-      } finally {
-        setLoading(false);
+  const fetchSensors = async () => {
+    try {
+      const response = await fetch("/api/v1/community/sensors");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch sensors: ${response.statusText}`);
       }
-    };
+      const data = await response.json();
+      setSensors(data);
+    } catch (err) {
+      console.error("Error fetching sensors:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchSensors();
 
     // Poll every 5 seconds
@@ -49,6 +51,11 @@ export default function CommunityPage() {
     // Cleanup on unmount
     return () => clearInterval(interval);
   }, []);
+
+  const handleSensorAdded = () => {
+    // Immediately refresh sensor list when a new sensor is registered
+    fetchSensors();
+  };
 
   // Calculate metrics
   const totalSensors = sensors.length;
@@ -64,11 +71,22 @@ export default function CommunityPage() {
 
   return (
     <main id="main" className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-ink">Community Sensor Network</h1>
-        <p className="mt-1 text-sm text-muted">
-          Real-time air quality measurements from community-operated sensors across Bengaluru
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Community Sensor Network</h1>
+          <p className="mt-1 text-sm text-muted">
+            Real-time air quality measurements from community-operated sensors across Bengaluru
+          </p>
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Sensor
+        </button>
       </div>
 
       {/* Metrics Dashboard */}
@@ -133,6 +151,13 @@ export default function CommunityPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Sensor Modal */}
+      <AddSensorModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleSensorAdded}
+      />
     </main>
   );
 }

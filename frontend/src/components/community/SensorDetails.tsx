@@ -36,11 +36,43 @@ export default function SensorDetails({ sensor }: { sensor: CommunitySensor }) {
             <span>Type:</span>
             <span className="text-ink">{sensor.sensor_type}</span>
           </div>
+          {sensor.source === "contributed" && (
+            <>
+              <div className="flex justify-between">
+                <span>Source:</span>
+                <span className="inline-block rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-[10px] font-medium dark:bg-blue-900/30 dark:text-blue-400">
+                  Community Contributed
+                </span>
+              </div>
+              {sensor.hardware_id && (
+                <div className="flex justify-between">
+                  <span>Hardware ID:</span>
+                  <span className="font-mono text-ink">{sensor.hardware_id}</span>
+                </div>
+              )}
+              {sensor.hardware_model && (
+                <div className="flex justify-between">
+                  <span>Hardware Model:</span>
+                  <span className="text-ink">{sensor.hardware_model}</span>
+                </div>
+              )}
+              {sensor.contributor_name && (
+                <div className="flex justify-between">
+                  <span>Contributor:</span>
+                  <span className="text-ink">{sensor.contributor_name}</span>
+                </div>
+              )}
+            </>
+          )}
           <div className="flex justify-between">
             <span>Location:</span>
-            <span className="font-mono text-ink">
-              {sensor.latitude.toFixed(4)}, {sensor.longitude.toFixed(4)}
-            </span>
+            {sensor.latitude !== null && sensor.longitude !== null ? (
+              <span className="font-mono text-ink">
+                {sensor.latitude.toFixed(4)}, {sensor.longitude.toFixed(4)}
+              </span>
+            ) : (
+              <span className="italic text-muted">Awaiting first data</span>
+            )}
           </div>
           <div className="flex justify-between">
             <span>Status:</span>

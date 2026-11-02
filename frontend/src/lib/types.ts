@@ -154,6 +154,8 @@ export type CommunitySensorReading = {
   pm10: number;
   temperature: number | null;
   humidity: number | null;
+  latitude: number | null;
+  longitude: number | null;
   recorded_at: string;
   received_at: string;
   quality_status: string;
@@ -162,10 +164,14 @@ export type CommunitySensorReading = {
 export type CommunitySensor = {
   id: string;
   name: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   sensor_type: string;
   status: string;
+  source: string;
+  hardware_id?: string | null;
+  hardware_model?: string | null;
+  contributor_name?: string | null;
   created_at: string;
   last_seen: string | null;
   latest_reading: CommunitySensorReading | null;

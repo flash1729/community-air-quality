@@ -225,6 +225,8 @@ class CommunitySensorReadingOut(BaseModel):
     pm10: float
     temperature: float | None = None
     humidity: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     recorded_at: datetime
     received_at: datetime
     quality_status: str
@@ -233,10 +235,14 @@ class CommunitySensorReadingOut(BaseModel):
 class CommunitySensorOut(BaseModel):
     id: str
     name: str
-    latitude: float
-    longitude: float
+    latitude: float | None
+    longitude: float | None
     sensor_type: str
     status: str
+    source: str
+    hardware_id: str | None = None
+    hardware_model: str | None = None
+    contributor_name: str | None = None
     created_at: datetime
     last_seen: datetime | None = None
     latest_reading: CommunitySensorReadingOut | None = None
@@ -249,6 +255,8 @@ class CommunitySensorReadingSubmit(BaseModel):
     pm10: float
     temperature: float | None = None
     humidity: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     recorded_at: datetime
 
 
@@ -258,3 +266,17 @@ class CommunitySensorRegister(BaseModel):
     latitude: float
     longitude: float
     sensor_type: str = "virtual"
+
+
+class ContributedSensorRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    hardware_id: str = Field(..., min_length=1, max_length=80)
+    hardware_model: str = Field(..., min_length=1, max_length=120)
+    contributor_name: str = Field(..., min_length=1, max_length=160)
+
+
+class ContributedSensorRegisterResponse(BaseModel):
+    sensor_id: str
+    token: str
+    ingestion_url: str
+    message: str

@@ -1,0 +1,117 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "HIGH",
+      "title": "Wrong Assumption - Current Models Have Nullable Coordinates",
+      "location": "Database Schema Changes section, CommunitySensor model",
+      "description": "The design correctly identifies that latitude/longitude are currently non-nullable, but provides contradictory migration strategies. Option A (ALTER TABLE) won't work for changing nullability in SQLite. The migration path is incomplete and ambiguous.",
+      "fix": "Remove Option A entirely. Specify ONE clear migration path: backup database, delete it, update models.py, restart backend (SQLAlchemy creates new schema), re-run seed script. Document that SQLite does not support ALTER COLUMN for nullability changes."
+    },
+    {
+      "id": 2,
+      "severity": "HIGH",
+      "title": "Missing Schema Fields - Models Don't Match Design",
+      "location": "Database Schema Changes section, Models",
+      "description": "The design states that latitude and longitude should be added to CommunitySensorReading but the provided model code block is incomplete. The complete updated model definition is not shown.",
+      "fix": "Add complete CommunitySensorReading model definition showing ALL fields including the new latitude and longitude fields with proper type annotations (Mapped[float | None])."
+    },
+    {
+      "id": 3,
+      "severity": "HIGH",
+      "title": "Unverified Assumption - Temperature Validation Doesn't Exist",
+      "location": "Modified Endpoint: POST /api/v1/community/sensors/readings",
+      "description": "The design adds NEW temperature validation (-40 to 60 degrees Celsius) but doesn't explicitly state that this validation does NOT currently exist in the code. Verification shows no temperature validation currently exists.",
+      "fix": "Explicitly state: 'NEW Validation (does not exist in current code): Temperature between -40 and 60 degrees Celsius' and provide the exact code snippet to add."
+    },
+    {
+      "id": 4,
+      "severity": "HIGH",
+      "title": "Missing Import Statement",
+      "location": "Modified Endpoint: POST /api/v1/community/sensors/readings, Backend Logic section",
+      "description": "The design uses math.isfinite() for coordinate validation but never specifies that 'import math' must be added to community_sensors.py. This import does not currently exist.",
+      "fix": "Add explicit instruction at the top of the Modified Endpoint section: 'Required Import Addition: import math at the top of backend/app/routers/community_sensors.py'"
+    },
+    {
+      "id": 5,
+      "severity": "HIGH",
+      "title": "Schema Field Mismatch - CommunitySensorOut Missing Fields",
+      "location": "API Endpoints section, Response Schema Changes",
+      "description": "The design shows CommunitySensorOut schema with nullable coordinates and new fields, but doesn't show the BEFORE state clearly. The current schema has non-nullable coordinates and no source/hardware fields.",
+      "fix": "Show explicit BEFORE → AFTER schema change with both versions side by side. Mark each changed field with comments (CHANGED: now nullable, NEW: added field)."
+    },
+    {
+      "id": 6,
+      "severity": "HIGH",
+      "title": "Wrong Assumption - Simulator Already Includes Coordinates",
+      "location": "Python Virtual Sensor Simulator section, Required Modifications",
+      "description": "The design correctly states that coordinates are NOT currently included, but doesn't show the EXACT current code and exact lines to modify. The modification instructions lack precision.",
+      "fix": "Show CURRENT CODE with line numbers and EXACT changes needed. Use format: 'CURRENT CODE (line ~96-110): [code block] CHANGE TO: [modified code block]' with added lines clearly marked."
+    },
+    {
+      "id": 7,
+      "severity": "HIGH",
+      "title": "Missing Schema Field - CommunitySensorReadingSubmit Coordinates",
+      "location": "API Endpoints section, Schema Additions",
+      "description": "The design shows CommunitySensorReadingSubmit schema with latitude/longitude fields but doesn't verify or show the CURRENT state. Actual code verification shows these fields do NOT currently exist.",
+      "fix": "Show explicit BEFORE → AFTER for CommunitySensorReadingSubmit schema: CURRENT: no lat/lon fields, NEW: with lat/lon fields marked as 'NEW: required for contributed sensors'."
+    },
+    {
+      "id": 8,
+      "severity": "MEDIUM",
+      "title": "Ambiguous Validation Logic - Source Field Check",
+      "location": "Modified Endpoint: POST /api/v1/community/sensors/readings, Backend Logic",
+      "description": "The validation logic checks 'if sensor.source == contributed' but doesn't specify what happens if source is NULL or an unexpected value. Needs defensive programming.",
+      "fix": "Add validation: 'if sensor.source == contributed: require coordinates' AND 'if coordinates provided (any sensor): validate ranges and finiteness'. Two separate validation blocks."
+    },
+    {
+      "id": 9,
+      "severity": "MEDIUM",
+      "title": "Incomplete Implementation - Sequence Number Persistence",
+      "location": "Python Virtual Sensor Simulator section, Sequence Number Persistence",
+      "description": "The design describes sequence number persistence with code snippets scattered across sections but never provides COMPLETE implementation showing WHERE in the code each piece goes (function names, line numbers).",
+      "fix": "Provide step-by-step implementation: Step 1: add state loading (after line X), Step 2: resume sequence numbers (in function Y), Step 3: add save function (after line Z), Step 4: call save after successful submission. Include line number ranges."
+    },
+    {
+      "id": 10,
+      "severity": "MEDIUM",
+      "title": "Missing Error Handling Detail - API URL Default Mismatch",
+      "location": "Python Virtual Sensor Simulator section, Simulator Usage Workflow",
+      "description": "The design recommends changing default API URL from http://localhost:8001 to http://localhost:8000 but actual code shows 8001 is current default. Doesn't explain rationale or impact on existing usage.",
+      "fix": "Either document the change with rationale (8000 is standard FastAPI port) and specify exact line to modify, OR keep 8001 and document that backend must run on that port, OR make --api-url required with no default."
+    },
+    {
+      "id": 11,
+      "severity": "NIT",
+      "title": "Inconsistent Terminology - Hardware Model Field Length",
+      "location": "Database Schema Changes, CommunitySensor table",
+      "description": "hardware_model VARCHAR(120) seems excessive for examples like 'ESP32 + PMS5003' (17 chars). Consider 80 for consistency with hardware_id VARCHAR(80).",
+      "fix": "Either keep 120 and justify (future-proofing for long descriptions) OR change to VARCHAR(80) for consistency."
+    },
+    {
+      "id": 12,
+      "severity": "NIT",
+      "title": "Missing Frontend Type - CommunitySensorReading Interface",
+      "location": "Frontend Implementation section, Type Updates",
+      "description": "The design shows CommunitySensor type updates but doesn't show the corresponding CommunitySensorReading type that needs latitude/longitude fields added for historical readings display.",
+      "fix": "Add CommunitySensorReading type with latitude/longitude fields to frontend type updates section."
+    },
+    {
+      "id": 13,
+      "severity": "NIT",
+      "title": "Unclear Instructions - Seed Script Update Location",
+      "location": "Database Schema Changes, Database Initialization",
+      "description": "The design says to update seed_community_sensors.py but doesn't specify exact sequencing (before/after migration) or line numbers to modify.",
+      "fix": "Add explicit sequencing: 'Update AFTER models.py changes, BEFORE backend restart. File: backend/app/seed_community_sensors.py, Line: ~50-70. Show CURRENT code and NEW code side by side."
+    }
+  ],
+  "reviewDoc": "/home/vishwas/Desktop/CC/community-air-quality/.agents/tasks/contributed-sensors/design-review.md",
+  "summary": {
+    "high_findings": 7,
+    "medium_findings": 3,
+    "nit_findings": 3,
+    "total_findings": 13,
+    "verdict_reason": "Design contains 7 HIGH severity findings related to unverified assumptions about existing code, incomplete migration strategies, missing import statements, and schema mismatches. These must be addressed before implementation to avoid failures."
+  }
+}
