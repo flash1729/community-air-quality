@@ -26,7 +26,12 @@ import requests
 
 
 class VirtualSensor:
-    """Represents a virtual IoT air quality sensor."""
+    """Represents a virtual IoT air quality sensor.
+    
+    This class simulates stationary sensors (e.g., home monitors, school installations)
+    that report the same geographical coordinates with every reading. Mobile sensors
+    that track changing locations are out of scope for this implementation.
+    """
     
     def __init__(
         self, 
@@ -146,19 +151,35 @@ class VirtualSensor:
             self.spike_end_time = None
 
 
-def load_sensors(tokens_file_path: str, api_base_url: str) -> List[VirtualSensor]:
-    """Load sensor tokens and fetch metadata from API."""
+def load_sensors(tokens_file_path: str, locations_file_path: str, api_base_url: str) -> List[VirtualSensor]:
+    """Load sensor tokens and locations from config files.
+    
+    The simulator maintains internally configured geographical locations for each sensor.
+    These coordinates are included in every reading payload. This represents the expected
+    behavior of physical devices that have GPS hardware or a configured location.
+    
+    Note: We fetch sensor names from the API for display purposes only, but coordinates
+    come from the local configuration file, not from the backend.
+    """
     tokens_path = Path(tokens_file_path)
+    locations_path = Path(locations_file_path)
     
     if not tokens_path.exists():
         raise FileNotFoundError(f"Tokens file not found: {tokens_file_path}")
     
+    if not locations_path.exists():
+        raise FileNotFoundError(f"Locations file not found: {locations_file_path}")
+    
     with open(tokens_path, 'r') as f:
         tokens = json.load(f)
     
-    print(f"📖 Loaded {len(tokens)} sensor tokens from {tokens_file_path}")
+    with open(locations_path, 'r') as f:
+        locations = json.load(f)
     
-    # Fetch sensor metadata from API
+    print(f"📖 Loaded {len(tokens)} sensor tokens from {tokens_file_path}")
+    print(f"📍 Loaded {len(locations)} sensor locations from {locations_file_path}")
+    
+    # Fetch sensor metadata from API for names
     try:
         response = requests.get(f"{api_base_url}/api/v1/community/sensors", timeout=10)
         response.raise_for_status()
@@ -172,17 +193,20 @@ def load_sensors(tokens_file_path: str, api_base_url: str) -> List[VirtualSensor
     # Create VirtualSensor instances
     virtual_sensors = []
     for sensor_id, token in tokens.items():
-        if sensor_id not in sensors_map:
-            print(f"⚠ Warning: {sensor_id} found in tokens but not in API response")
+        if sensor_id not in locations:
+            print(f"⚠ Warning: {sensor_id} found in tokens but not in locations config - skipping")
             continue
-            
-        sensor_meta = sensors_map[sensor_id]
+        
+        # Use sensor name from API if available, otherwise use sensor_id
+        sensor_name = sensors_map.get(sensor_id, {}).get('name', sensor_id)
+        
+        location = locations[sensor_id]
         virtual_sensor = VirtualSensor(
             sensor_id=sensor_id,
-            name=sensor_meta['name'],
+            name=sensor_name,
             token=token,
-            latitude=sensor_meta['latitude'],
-            longitude=sensor_meta['longitude']
+            latitude=location['latitude'],
+            longitude=location['longitude']
         )
         virtual_sensors.append(virtual_sensor)
     
@@ -245,6 +269,12 @@ def main():
     )
     
     parser.add_argument(
+        '--locations-file',
+        default='data/sensor_locations.json',
+        help='Path to sensor locations JSON file (default: data/sensor_locations.json)'
+    )
+    
+    parser.add_argument(
         '--spike',
         metavar='SENSOR_ID',
         help='Trigger pollution spike for specified sensor'
@@ -278,9 +308,16 @@ def main():
         backend_dir = Path(__file__).parent.parent.parent
         tokens_file = backend_dir / tokens_file
     
+    # Resolve locations file path
+    locations_file = Path(args.locations_file)
+    if not locations_file.is_absolute():
+        # Resolve relative to backend directory
+        backend_dir = Path(__file__).parent.parent.parent
+        locations_file = backend_dir / locations_file
+    
     # Load sensors
     try:
-        sensors = load_sensors(str(tokens_file), args.api_url)
+        sensors = load_sensors(str(tokens_file), str(locations_file), args.api_url)
     except Exception as e:
         print(f"❌ Error loading sensors: {e}")
         return 1

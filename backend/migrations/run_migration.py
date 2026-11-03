@@ -82,11 +82,20 @@ def main():
         print(f"  ✗ coordinate columns MISSING in readings")
     
     # Verify existing sensors have source='seed'
-    cursor.execute("SELECT id, source FROM community_sensors")
+    cursor.execute("SELECT id, source, latitude, longitude FROM community_sensors")
     sensors = cursor.fetchall()
     print(f"\n  Existing sensors:")
-    for sensor_id, source in sensors:
-        print(f"    {sensor_id}: source={source}")
+    
+    invalid_coords = []
+    for sensor_id, source, lat, lon in sensors:
+        print(f"    {sensor_id}: source={source}, lat={lat}, lon={lon}")
+        # Validate that seed sensors have valid coordinates (Finding #6)
+        if source == 'seed' and (lat is None or lon is None):
+            invalid_coords.append(sensor_id)
+    
+    if invalid_coords:
+        print(f"\n  ⚠ WARNING: Seed sensors with NULL coordinates: {invalid_coords}")
+        print(f"  These sensors will not appear on the map until coordinates are set.")
     
     conn.close()
     print("\n✓ Verification complete")

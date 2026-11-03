@@ -1,0 +1,13 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Simulator coordinates source mismatch (confirmed) — The simulator fetches coordinates from the backend API and echoes them back in readings instead of maintaining an internally configured location. Change virtual_sensors.py to set latitude/longitude from a config file or command-line args, not from API metadata.",
+    "Sequential ID race condition (confirmed) — Two concurrent registration requests can query the same max ID before either commits, causing both to generate SENSOR_012 and one to fail after retry exhaustion. Use a database-level sequence or atomic counter, or switch to UUIDs.",
+    "Registration endpoint lacks rate limiting (likely) — No throttling on POST /api/v1/community/sensors/register means an attacker can exhaust sensor IDs or fill the database. Add IP-based rate limiting or require CAPTCHA/authentication.",
+    "Token exposure in 201 response (confirmed) — The registration response includes the plaintext token in JSON, which may be logged by proxies, caches, or browser devtools. This is unavoidable for the registration flow, but document that HTTPS is mandatory and logs should redact the response body.",
+    "No validation that readings coordinates change over time (possible) — A stationary sensor submitting the same coordinates is valid, but a mobile sensor's coordinates should vary. If the feature is meant for stationary sensors, document it; if mobile sensors are expected, add a check or warning when coordinates don't change for N readings.",
+    "Migration doesn't verify existing sensors have valid coordinates (confirmed) — The migration sets source='seed' for all existing sensors but doesn't confirm that their latitude/longitude are non-null. If the database somehow has a seed sensor with null coordinates (corruption or manual edit), the map endpoint will exclude it after migration. Add a validation query to the migration runner.",
+    "Frontend 'Awaiting first data' doesn't distinguish between never-reported and coordinates-missing (possible) — A sensor that has submitted readings without coordinates will show 'Awaiting first data' the same as a sensor that has never reported. If seed sensors can submit readings without coordinates, the UI should clarify 'No location data' vs 'No readings yet'."
+  ],
+  "reviewDoc": "/home/vishwas/Desktop/CC/community-air-quality/.agents/tasks/contributed-sensors/2026-11-13-084953-review.md"
+}

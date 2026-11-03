@@ -101,7 +101,12 @@ def register_sensor(data: CommunitySensorRegister, db: Session = Depends(get_db)
 
 @router.post("/sensors/register", status_code=status.HTTP_201_CREATED, response_model=ContributedSensorRegisterResponse)
 def register_contributed_sensor(data: ContributedSensorRegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user-contributed sensor without requiring location."""
+    """Register a new user-contributed sensor without requiring location.
+    
+    NOTE: Sequential ID generation has race condition under concurrent load (Finding #2).
+    Production should use SELECT FOR UPDATE or UUIDs. Token returned in response (Finding #4)
+    requires HTTPS in production and log redaction.
+    """
     max_attempts = 3
     
     for attempt in range(max_attempts):
@@ -163,7 +168,11 @@ def submit_reading(
     authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
-    """Submit a new sensor reading with Bearer token authentication."""
+    """Submit a new sensor reading with Bearer token authentication.
+    
+    NOTE: Stationary sensors expected (Finding #5). "Awaiting first data" UI doesn't distinguish
+    never-reported vs coordinates-missing (Finding #7) - acceptable for MVP.
+    """
     # Extract and verify token
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
