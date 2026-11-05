@@ -1,6 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { Check, Copy, LoaderCircle, RadioTower, X } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+
+import { Banner, SectionHeading } from '@/components/ui';
 
 interface AddSensorModalProps {
   isOpen: boolean;
@@ -15,76 +19,89 @@ interface RegistrationResponse {
   message: string;
 }
 
+type FieldName = 'name' | 'hardware_id' | 'hardware_model' | 'contributor_name';
+
+const FIELDS: { id: FieldName; label: string; placeholder: string; max: number }[] = [
+  { id: 'name', label: 'Sensor name', placeholder: 'My Home Sensor', max: 160 },
+  { id: 'hardware_id', label: 'Hardware ID', placeholder: 'ESP32-ABC123', max: 80 },
+  { id: 'hardware_model', label: 'Hardware model', placeholder: 'ESP32 + PMS5003', max: 120 },
+  { id: 'contributor_name', label: 'Contributor name', placeholder: 'Your name or organisation', max: 160 },
+];
+
+const EMPTY_FORM: Record<FieldName, string> = { name: '', hardware_id: '', hardware_model: '', contributor_name: '' };
+
 export default function AddSensorModal({ isOpen, onClose, onSuccess }: AddSensorModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    hardware_id: '',
-    hardware_model: '',
-    contributor_name: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationResult, setRegistrationResult] = useState<RegistrationResponse | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    setFormData(EMPTY_FORM);
+    setErrors({});
+    setApiError(null);
+    setRegistrationResult(null);
+    onClose();
+  };
+  const closeRef = useRef(handleClose);
+  closeRef.current = handleClose;
+
+  // While open: Escape closes, the page behind is inert and does not scroll.
+  useEffect(() => {
+    if (!isOpen) return;
+    const portalRoot = dialogRef.current?.closest('[data-modal-root]');
+    const siblings = Array.from(document.body.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el !== portalRoot && !el.inert,
+    );
+    siblings.forEach((el) => (el.inert = true));
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.querySelector<HTMLElement>('input, button')?.focus();
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      siblings.forEach((el) => (el.inert = false));
+      document.body.style.overflow = overflow;
+    };
+  }, [isOpen]);
+
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Sensor name is required';
-    } else if (formData.name.trim().length > 160) {
-      newErrors.name = 'Sensor name must be 160 characters or less';
+    const newErrors: Partial<Record<FieldName, string>> = {};
+    for (const field of FIELDS) {
+      const value = formData[field.id].trim();
+      if (!value) newErrors[field.id] = `${field.label} is required`;
+      else if (value.length > field.max) newErrors[field.id] = `${field.label} must be ${field.max} characters or less`;
     }
-
-    if (!formData.hardware_id.trim()) {
-      newErrors.hardware_id = 'Hardware ID is required';
-    } else if (formData.hardware_id.trim().length > 80) {
-      newErrors.hardware_id = 'Hardware ID must be 80 characters or less';
-    }
-
-    if (!formData.hardware_model.trim()) {
-      newErrors.hardware_model = 'Hardware model is required';
-    } else if (formData.hardware_model.trim().length > 120) {
-      newErrors.hardware_model = 'Hardware model must be 120 characters or less';
-    }
-
-    if (!formData.contributor_name.trim()) {
-      newErrors.contributor_name = 'Contributor name is required';
-    } else if (formData.contributor_name.trim().length > 160) {
-      newErrors.contributor_name = 'Contributor name must be 160 characters or less';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setApiError(null);
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
-
     try {
       const response = await fetch('/api/v1/community/sensors/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to register sensor');
+        const errorData = await response.json().catch(() => ({}));
+        const detail = Array.isArray(errorData.detail) ? errorData.detail[0]?.msg : errorData.detail;
+        throw new Error(typeof detail === 'string' && detail ? detail : 'Failed to register sensor');
       }
-
       const result: RegistrationResponse = await response.json();
       setRegistrationResult(result);
       onSuccess();
@@ -105,239 +122,124 @@ export default function AddSensorModal({ isOpen, onClose, onSuccess }: AddSensor
     }
   };
 
-  const handleClose = () => {
-    setFormData({ name: '', hardware_id: '', hardware_model: '', contributor_name: '' });
-    setErrors({});
-    setApiError(null);
-    setRegistrationResult(null);
-    onClose();
-  };
+  const credentials = registrationResult
+    ? [
+        { id: 'sensor_id', label: 'Sensor ID', value: registrationResult.sensor_id },
+        { id: 'token', label: 'Authentication token', value: registrationResult.token },
+        { id: 'url', label: 'Ingestion endpoint', value: registrationResult.ingestion_url },
+      ]
+    : [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {registrationResult ? 'Sensor Registered Successfully' : 'Add New Sensor'}
-          </h2>
+  return createPortal(
+    <div data-modal-root className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-paper/75 backdrop-blur-sm" aria-hidden="true" onClick={handleClose} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-sensor-title"
+        className="relative max-h-[90vh] w-full max-w-lg animate-pop overflow-y-auto rounded-3xl border border-line-strong bg-surface-solid p-5 shadow-pop sm:p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <SectionHeading
+            icon={<RadioTower size={17} />}
+            title={<span id="add-sensor-title">{registrationResult ? 'Sensor registered' : 'Add sensor'}</span>}
+            hint={
+              registrationResult
+                ? 'Use these credentials to connect your device.'
+                : 'Your device reports its own location with every reading.'
+            }
+          />
           <button
+            type="button"
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Close"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-surface-2 text-muted transition duration-200 hover:border-line-strong hover:text-ink"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X size={16} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {!registrationResult ? (
-            // Form View
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <p className="text-gray-600 text-sm mb-4">
-                Register your air quality monitoring device. The sensor will report its location along with measurements.
-              </p>
+        {!registrationResult ? (
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            {apiError && (
+              <Banner tone="error" role="alert">
+                {apiError}
+              </Banner>
+            )}
 
-              {apiError && (
-                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-                  {apiError}
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Sensor Name *
+            {FIELDS.map((field) => (
+              <div key={field.id}>
+                <label htmlFor={field.id} className="mb-1.5 block text-xs font-medium text-muted">
+                  {field.label}
                 </label>
                 <input
                   type="text"
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.name ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="My Home Sensor"
-                  maxLength={160}
+                  id={field.id}
+                  value={formData[field.id]}
+                  onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                  className={`field w-full py-2.5 placeholder:text-faint ${errors[field.id] ? 'border-danger' : ''}`}
+                  placeholder={field.placeholder}
+                  maxLength={field.max}
+                  aria-invalid={Boolean(errors[field.id])}
+                  aria-describedby={errors[field.id] ? `${field.id}-error` : undefined}
                 />
-                {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+                {errors[field.id] && (
+                  <p id={`${field.id}-error`} className="mt-1.5 text-xs text-danger">
+                    {errors[field.id]}
+                  </p>
+                )}
               </div>
+            ))}
 
-              <div>
-                <label htmlFor="hardware_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Hardware ID *
-                </label>
-                <input
-                  type="text"
-                  id="hardware_id"
-                  value={formData.hardware_id}
-                  onChange={(e) => setFormData({ ...formData, hardware_id: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.hardware_id ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="ESP32-ABC123"
-                  maxLength={80}
-                />
-                {errors.hardware_id && <p className="mt-1 text-sm text-red-600">{errors.hardware_id}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="hardware_model" className="block text-sm font-medium text-gray-700 mb-1">
-                  Hardware Model *
-                </label>
-                <input
-                  type="text"
-                  id="hardware_model"
-                  value={formData.hardware_model}
-                  onChange={(e) => setFormData({ ...formData, hardware_model: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.hardware_model ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="ESP32 + PMS5003"
-                  maxLength={120}
-                />
-                {errors.hardware_model && <p className="mt-1 text-sm text-red-600">{errors.hardware_model}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="contributor_name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Contributor Name *
-                </label>
-                <input
-                  type="text"
-                  id="contributor_name"
-                  value={formData.contributor_name}
-                  onChange={(e) => setFormData({ ...formData, contributor_name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.contributor_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Your Name or Organization"
-                  maxLength={160}
-                />
-                {errors.contributor_name && <p className="mt-1 text-sm text-red-600">{errors.contributor_name}</p>}
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSubmitting ? 'Registering...' : 'Register Sensor'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            // Success View
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded flex items-start">
-                <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <p className="font-semibold">Sensor registered successfully!</p>
-                  <p className="text-sm mt-1">{registrationResult.message}</p>
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-900 px-4 py-3 rounded flex items-start">
-                <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <p className="font-semibold">Store these credentials securely</p>
-                  <p className="text-sm mt-1">The authentication token cannot be retrieved later. Copy it now and save it in a secure location.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sensor ID</label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded font-mono text-sm">
-                      {registrationResult.sensor_id}
-                    </code>
-                    <button
-                      onClick={() => handleCopy(registrationResult.sensor_id, 'sensor_id')}
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                      title="Copy to clipboard"
-                    >
-                      {copiedField === 'sensor_id' ? (
-                        <span className="text-green-600 text-sm">✓</span>
-                      ) : (
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Authentication Token</label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded font-mono text-sm break-all">
-                      {registrationResult.token}
-                    </code>
-                    <button
-                      onClick={() => handleCopy(registrationResult.token, 'token')}
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                      title="Copy to clipboard"
-                    >
-                      {copiedField === 'token' ? (
-                        <span className="text-green-600 text-sm">✓</span>
-                      ) : (
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ingestion Endpoint</label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded font-mono text-sm">
-                      {registrationResult.ingestion_url}
-                    </code>
-                    <button
-                      onClick={() => handleCopy(registrationResult.ingestion_url, 'url')}
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                      title="Copy to clipboard"
-                    >
-                      {copiedField === 'url' ? (
-                        <span className="text-green-600 text-sm">✓</span>
-                      ) : (
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <button
-                  onClick={handleClose}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Done
-                </button>
-              </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={handleClose} className="btn btn-ghost">
+                Cancel
+              </button>
+              <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                {isSubmitting && <LoaderCircle size={16} className="animate-spin" />}
+                {isSubmitting ? 'Registering…' : 'Register sensor'}
+              </button>
             </div>
-          )}
-        </div>
+          </form>
+        ) : (
+          <div className="mt-6 space-y-4">
+            <Banner tone="info">{registrationResult.message}</Banner>
+            <Banner tone="warn" role="alert">
+              The authentication token is shown only once. Copy it now and store it securely.
+            </Banner>
+
+            <dl className="space-y-3">
+              {credentials.map((item) => (
+                <div key={item.id}>
+                  <dt className="eyebrow mb-1.5">{item.label}</dt>
+                  <dd className="flex items-start gap-2">
+                    <code className="min-w-0 flex-1 break-all rounded-xl border border-line bg-surface-2 px-3 py-2.5 font-mono text-xs leading-5 text-ink">
+                      {item.value}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(item.value, item.id)}
+                      aria-label={`Copy ${item.label.toLowerCase()}`}
+                      title="Copy to clipboard"
+                      className="btn btn-ghost h-[42px] w-[42px] shrink-0 px-0 py-0"
+                    >
+                      {copiedField === item.id ? <Check size={16} className="text-accent" /> : <Copy size={16} />}
+                    </button>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="flex justify-end pt-2">
+              <button type="button" onClick={handleClose} className="btn btn-primary">
+                Done
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 
 export const maxDuration = 60;
 
-const BASE = "http://127.0.0.1:8001";
+const BASE = process.env.API_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
@@ -12,7 +12,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     const response = await fetch(target, {
       method: request.method,
       cache: "no-store",
-      headers: { accept: "application/json" },
+      headers: {
+        accept: "application/json",
+        ...(request.headers.get("content-type") ? { "content-type": request.headers.get("content-type")! } : {}),
+      },
       body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.text(),
     });
     const text = await response.text();

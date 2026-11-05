@@ -10,6 +10,7 @@ from sqlalchemy import select, desc, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.config import get_settings
 from app.models import CommunitySensor, CommunitySensorReading
 from app.routers.locations import get_db
 from app.schemas import (
@@ -20,6 +21,7 @@ from app.schemas import (
     ContributedSensorRegisterRequest,
     ContributedSensorRegisterResponse,
 )
+from app.simulator.provisioning import provision_simulator_token
 from app.timeutils import utcnow
 
 router = APIRouter(prefix="/community", tags=["community_sensors"])
@@ -141,6 +143,10 @@ def register_contributed_sensor(data: ContributedSensorRegisterRequest, db: Sess
             )
             db.add(sensor)
             db.commit()
+            
+            settings = get_settings()
+            if settings.simulator_auto_provision:
+                provision_simulator_token(settings.simulator_tokens_file, sensor_id, token)
             
             return ContributedSensorRegisterResponse(
                 sensor_id=sensor_id,

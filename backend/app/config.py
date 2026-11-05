@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     stale_after_minutes: int = 180
     cors_origins: str = "http://localhost:3000"
     scheduler_token: str = ""
+    # Dev/demo only: hand each newly registered sensor's token to the local
+    # simulator by writing it to the simulator's tokens file.
+    simulator_auto_provision: bool = False
+    simulator_tokens_file: str = "data/sensor_tokens.json"
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

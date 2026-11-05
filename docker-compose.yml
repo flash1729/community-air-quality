@@ -9,8 +9,33 @@ services:
       OPENMETEO_FORECAST_URL: https://api.open-meteo.com/v1/forecast
       OPENMETEO_AIR_QUALITY_URL: https://air-quality-api.open-meteo.com/v1/air-quality
       CACHE_TTL_MINUTES: ${CACHE_TTL_MINUTES:-30}
+      # Local demo only: hands each newly registered sensor's token to the
+      # simulator below. Leave off anywhere real devices register.
+      SIMULATOR_AUTO_PROVISION: "true"
+      SIMULATOR_TOKENS_FILE: /app/data/sensor_tokens.json
     volumes:
       - air-data:/app/data
+
+  # Virtual devices. Reads tokens and locations from the shared data volume and
+  # posts readings to the backend's HTTP ingestion endpoint.
+  simulator:
+    build: ./backend
+    command:
+      - python
+      - -u
+      - -m
+      - app.simulator.virtual_sensors
+      - --api-url
+      - http://backend:8000
+      - --tokens-file
+      - /app/data/sensor_tokens.json
+      - --locations-file
+      - /app/data/sensor_locations.json
+    volumes:
+      - air-data:/app/data
+    depends_on:
+      - backend
+    restart: unless-stopped
 
   frontend:
     build: ./frontend

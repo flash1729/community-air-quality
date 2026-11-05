@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { Plus } from "lucide-react";
 
 import AddSensorModal from "@/components/community/AddSensorModal";
 import SensorDetails from "@/components/community/SensorDetails";
@@ -78,13 +79,8 @@ export default function CommunityPage() {
             Real-time air quality measurements from community-operated sensors across Bengaluru
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary">
+          <Plus size={16} />
           Add Sensor
         </button>
       </div>
