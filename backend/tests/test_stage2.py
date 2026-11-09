@@ -451,6 +451,8 @@ def test_provider_failure_keeps_the_stored_reading_and_marks_it_stale(api, monke
     deadline = time.perf_counter() + 3
     while calls["count"] < 1 and time.perf_counter() < deadline:
         time.sleep(0.05)
+    # The failed fetch records itself after the provider call returns.
+    time.sleep(0.3)
     second = client.get(f"/api/v1/locations/{location_id}/overview")
     assert second.status_code == 200
     kept = next(item for item in second.json()["pollutants"] if item["parameter"] == "pm25")

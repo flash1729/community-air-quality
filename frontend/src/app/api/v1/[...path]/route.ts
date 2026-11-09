@@ -15,6 +15,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       headers: {
         accept: "application/json",
         ...(request.headers.get("content-type") ? { "content-type": request.headers.get("content-type")! } : {}),
+        ...(request.headers.get("authorization") ? { authorization: request.headers.get("authorization")! } : {}),
       },
       body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.text(),
     });
