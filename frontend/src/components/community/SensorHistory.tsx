@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import {
@@ -57,6 +57,20 @@ export default function SensorHistory({ sensorId }: { sensorId: string | null })
     fetchHistory();
   }, [sensorId]);
 
+  // Memoized so parent re-renders from sensor polling don't hand the chart new
+  // data and restart its line animation.
+  const chartData: ChartRow[] = useMemo(
+    () =>
+      readings
+        .map((reading) => ({
+          label: new Date(reading.recorded_at).toLocaleTimeString(),
+          pm25: reading.pm25,
+          pm10: reading.pm10,
+        }))
+        .reverse(), // Reverse to show oldest to newest
+    [readings],
+  );
+
   if (!sensorId) {
     return (
       <div className="flex h-72 items-center justify-center rounded-xl border border-line bg-surface-2 text-sm text-muted">
@@ -81,11 +95,6 @@ export default function SensorHistory({ sensorId }: { sensorId: string | null })
     );
   }
 
-  const chartData: ChartRow[] = readings.map((reading) => ({
-    label: new Date(reading.recorded_at).toLocaleTimeString(),
-    pm25: reading.pm25,
-    pm10: reading.pm10,
-  })).reverse(); // Reverse to show oldest to newest
 
   const hasPm25 = chartData.some((row) => row.pm25 !== null);
   const hasPm10 = chartData.some((row) => row.pm10 !== null);

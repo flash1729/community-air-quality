@@ -39,10 +39,14 @@ function sensorIcon(sensor: CommunitySensor, active: boolean) {
   });
 }
 
+// Fits the view to the sensors once, when they first arrive. Later polls must
+// leave the user's zoom and pan alone.
 function FitSensors({ sensors, center }: { sensors: CommunitySensor[]; center: [number, number] }) {
   const map = useMap();
+  const fitted = useRef(false);
   useEffect(() => {
-    if (sensors.length === 0) return;
+    if (fitted.current || sensors.length === 0) return;
+    fitted.current = true;
     const bounds = L.latLngBounds([
       center,
       ...sensors.map((sensor) => [sensor.latitude, sensor.longitude] as [number, number]),
@@ -85,25 +89,59 @@ export default function CommunitySensorMap({
   onSelect?: (id: string) => void;
 }) {
   // Filter out sensors without valid coordinates
-  const validSensors = sensors.filter(
-    (sensor) => sensor.latitude !== null && sensor.longitude !== null
+  const validSensors = useMemo(
+    () => sensors.filter((sensor) => sensor.latitude !== null && sensor.longitude !== null),
+    [sensors],
   );
 
   const markers = useRef(new Map<string, L.Marker>());
   const mapRef = useRef<L.Map | null>(null);
-  const icons = useMemo(
-    () => new Map(validSensors.map((sensor) => [sensor.id, sensorIcon(sensor, sensor.id === activeId)])),
-    [validSensors, activeId],
-  );
+  // Reuse the previous icon object when a pin looks the same, so react-leaflet
+  // does not swap the marker DOM (and restart its pulse) on every poll.
+  const iconCache = useRef(new Map<string, { key: string; icon: L.DivIcon }>());
+  const icons = useMemo(() => {
+    const next = new Map<string, L.DivIcon>();
+    for (const sensor of validSensors) {
+      const active = sensor.id === activeId;
+      const key = `${getSensorColor(sensor)}|${sensor.latest_reading ? Math.round(sensor.latest_reading.pm25) : "-"}|${active}`;
+      const cached = iconCache.current.get(sensor.id);
+      const icon = cached && cached.key === key ? cached.icon : sensorIcon(sensor, active);
+      iconCache.current.set(sensor.id, { key, icon });
+      next.set(sensor.id, icon);
+    }
+    return next;
+  }, [validSensors, activeId]);
+
+  // Same idea for positions: a new array makes react-leaflet call setLatLng,
+  // which moves the open popup and lets Leaflet auto-pan the map.
+  const positionCache = useRef(new Map<string, [number, number]>());
+  const positions = useMemo(() => {
+    const next = new Map<string, [number, number]>();
+    for (const sensor of validSensors) {
+      const cached = positionCache.current.get(sensor.id);
+      const position: [number, number] =
+        cached && cached[0] === sensor.latitude && cached[1] === sensor.longitude
+          ? cached
+          : [sensor.latitude!, sensor.longitude!];
+      positionCache.current.set(sensor.id, position);
+      next.set(sensor.id, position);
+    }
+    return next;
+  }, [validSensors]);
+
+  // Keep the latest sensors in a ref so the fly-to effect runs only when the
+  // selection changes, not on every data refresh.
+  const sensorsRef = useRef(validSensors);
+  sensorsRef.current = validSensors;
 
   useEffect(() => {
     if (activeId === null) return;
-    const sensor = validSensors.find((item) => item.id === activeId);
+    const sensor = sensorsRef.current.find((item) => item.id === activeId);
     const map = mapRef.current;
     if (!sensor || !map || sensor.latitude === null || sensor.longitude === null) return;
     map.flyTo([sensor.latitude, sensor.longitude], Math.max(map.getZoom(), 12), { duration: 0.7 });
     markers.current.get(activeId)?.openPopup();
-  }, [activeId, validSensors]);
+  }, [activeId]);
 
   return (
     <MapContainer ref={mapRef} center={center} zoom={11} scrollWheelZoom={false} className="h-full w-full">
@@ -115,14 +153,25 @@ export default function CommunitySensorMap({
       {validSensors.map((sensor) => (
         <Marker
           key={sensor.id}
-          position={[sensor.latitude!, sensor.longitude!]}
+          position={positions.get(sensor.id)!}
           icon={icons.get(sensor.id)}
           title={sensor.name}
           ref={(marker) => {
             if (marker) markers.current.set(sensor.id, marker);
             else markers.current.delete(sensor.id);
           }}
-          eventHandlers={{ click: () => onSelect?.(sensor.id) }}
+          eventHandlers={{
+            click: () => onSelect?.(sensor.id),
+            // Leaflet auto-pans on every popup.update(), which react-leaflet calls
+            // whenever the popup content re-renders. Allow it only while opening
+            // so live updates don't nudge the map the user has panned.
+            popupopen: (event: L.PopupEvent) => {
+              event.popup.options.autoPan = false;
+            },
+            popupclose: (event: L.PopupEvent) => {
+              event.popup.options.autoPan = true;
+            },
+          }}
         >
           <Popup>
             <div className="min-w-[14rem]">
