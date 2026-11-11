@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
-    app.state.session_factory = create_session_factory(settings.database_url)
+    app.state.session_factory = create_session_factory(settings.database_url, settings.community_demo_mode)
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(locations.router, prefix="/api/v1")
     app.include_router(stations.router, prefix="/api/v1")

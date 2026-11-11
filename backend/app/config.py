@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # simulator by writing it to the simulator's tokens file.
     simulator_auto_provision: bool = False
     simulator_tokens_file: str = "data/sensor_tokens.json"
+    # Deployed demo only: seed the Bengaluru sensors on startup and generate
+    # simulated readings server-side when community data is read.
+    community_demo_mode: bool = False
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

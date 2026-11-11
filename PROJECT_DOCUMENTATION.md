@@ -658,7 +658,7 @@ gcloud run deploy community-air-api \
   --image us-central1-docker.pkg.dev/<PROJECT>/<REPO>/community-air-api \
   --region us-central1 --allow-unauthenticated \
   --min-instances 0 --max-instances 1 --cpu 1 --memory 512Mi \
-  --set-env-vars CORS_ORIGINS=https://<your-vercel-domain> \
+  --set-env-vars CORS_ORIGINS=https://<your-vercel-domain>,COMMUNITY_DEMO_MODE=true \
   --set-secrets OPENAQ_API_KEY=openaq-api-key:latest,SCHEDULER_TOKEN=scheduler-token:latest
 
 # 4. Daily refresh (02:30 Asia/Kolkata)
@@ -668,7 +668,7 @@ gcloud scheduler jobs create http refresh-popular \
   --headers "X-Scheduler-Token=<SCHEDULER_TOKEN>"
 ```
 
-Deploy the `frontend/` directory to Vercel and set `API_INTERNAL_URL` to the Cloud Run URL. `backend/.gcloudignore` keeps local databases and virtual environments out of source uploads.
+`COMMUNITY_DEMO_MODE=true` makes the API seed the ten Bengaluru community sensors on startup and generate simulated readings when community data is read, because the deployment has no simulator process (see README, "Community sensors in the deployed demo"). Deploy the `frontend/` directory to Vercel and set `API_INTERNAL_URL` to the Cloud Run URL. `backend/.gcloudignore` keeps local databases and virtual environments out of source uploads.
 
 ---
 

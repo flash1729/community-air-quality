@@ -82,7 +82,7 @@ SENSORS = [
 ]
 
 
-def seed_community_sensors(session: Session) -> dict[str, str]:
+def seed_community_sensors(session: Session, bcrypt_rounds: int = 12) -> dict[str, str]:
     """Seed community sensors and return mapping of sensor_id to plaintext token."""
     tokens = {}
     sensors_to_add = []
@@ -107,7 +107,7 @@ def seed_community_sensors(session: Session) -> dict[str, str]:
         
         # Generate token and hash it using bcrypt
         token = secrets.token_urlsafe(24)
-        token_hash = bcrypt.hashpw(token.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        token_hash = bcrypt.hashpw(token.encode('utf-8'), bcrypt.gensalt(rounds=bcrypt_rounds)).decode('utf-8')
         
         # Store plaintext token for later export
         tokens[sensor_data["id"]] = token

@@ -10,6 +10,7 @@ from sqlalchemy import select, desc, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.community_demo import ensure_demo_readings
 from app.config import get_settings
 from app.models import CommunitySensor, CommunitySensorReading
 from app.routers.locations import get_db
@@ -22,9 +23,14 @@ from app.schemas import (
     ContributedSensorRegisterResponse,
 )
 from app.simulator.provisioning import provision_simulator_token
-from app.timeutils import utcnow
+from app.timeutils import as_utc, utcnow
 
 router = APIRouter(prefix="/community", tags=["community_sensors"])
+
+
+def _utc(value: datetime | None) -> datetime | None:
+    """SQLite returns naive datetimes; they are UTC, so say so in the response."""
+    return as_utc(value) if value is not None else None
 
 
 def _sensor_to_out(sensor: CommunitySensor, latest_reading: CommunitySensorReading | None = None) -> CommunitySensorOut:
@@ -270,6 +276,7 @@ def submit_reading(
 @router.get("/sensors", response_model=list[CommunitySensorOut])
 def list_sensors(db: Session = Depends(get_db)):
     """List all community sensors with their latest readings."""
+    ensure_demo_readings(db)
     sensors = db.scalars(select(CommunitySensor)).all()
     
     result = []
@@ -289,6 +296,7 @@ def list_sensors(db: Session = Depends(get_db)):
 @router.get("/sensors/{sensor_id}", response_model=CommunitySensorOut)
 def get_sensor(sensor_id: str, db: Session = Depends(get_db)):
     """Get details of a specific sensor with its latest reading."""
+    ensure_demo_readings(db)
     sensor = db.get(CommunitySensor, sensor_id)
     if not sensor:
         raise HTTPException(status_code=404, detail="Sensor not found.")
@@ -313,6 +321,7 @@ def get_sensor_readings(
     db: Session = Depends(get_db),
 ):
     """Get paginated readings for a sensor with optional time range filtering."""
+    ensure_demo_readings(db)
     sensor = db.get(CommunitySensor, sensor_id)
     if not sensor:
         raise HTTPException(status_code=404, detail="Sensor not found.")
@@ -349,6 +358,7 @@ def get_sensor_readings(
 @router.get("/map")
 def get_map_data(db: Session = Depends(get_db)):
     """Get all sensors with latest readings formatted for map display."""
+    ensure_demo_readings(db)
     # Only include sensors with valid coordinates
     sensors = db.scalars(
         select(CommunitySensor)
@@ -373,7 +383,7 @@ def get_map_data(db: Session = Depends(get_db)):
             "sensor_type": sensor.sensor_type,
             "status": sensor.status,
             "source": sensor.source,
-            "last_seen": sensor.last_seen,
+            "last_seen": _utc(sensor.last_seen),
         }
         
         if latest_reading:
@@ -382,7 +392,7 @@ def get_map_data(db: Session = Depends(get_db)):
                 "pm10": latest_reading.pm10,
                 "temperature": latest_reading.temperature,
                 "humidity": latest_reading.humidity,
-                "recorded_at": latest_reading.recorded_at,
+                "recorded_at": _utc(latest_reading.recorded_at),
             }
         else:
             sensor_data["latest_reading"] = None

@@ -60,7 +60,7 @@ def _align_existing_sqlite(engine) -> None:
                 )
 
 
-def create_session_factory(database_url: str):
+def create_session_factory(database_url: str, community_demo_mode: bool = False):
     ensure_sqlite_path(database_url)
     sqlite = database_url.startswith("sqlite")
     connect_args = {"check_same_thread": False, "timeout": 30} if sqlite else {}
@@ -81,4 +81,11 @@ def create_session_factory(database_url: str):
         if not count:
             seed_sample_data(session)
             session.commit()
+    if community_demo_mode:
+        # Imported here: seed_community_sensors imports this module.
+        from app.seed_community_sensors import seed_community_sensors
+
+        with factory() as session:
+            # Demo tokens are never handed out, so a cheap hash keeps cold starts fast.
+            seed_community_sensors(session, bcrypt_rounds=4)
     return factory

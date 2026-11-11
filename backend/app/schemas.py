@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.timeutils import as_utc
 
 
 class LocationOut(BaseModel):
@@ -231,6 +233,12 @@ class CommunitySensorReadingOut(BaseModel):
     received_at: datetime
     quality_status: str
 
+    @field_validator("recorded_at", "received_at")
+    @classmethod
+    def _as_utc(cls, value: datetime) -> datetime:
+        # SQLite drops tzinfo; stored values are UTC.
+        return as_utc(value)
+
 
 class CommunitySensorOut(BaseModel):
     id: str
@@ -246,6 +254,12 @@ class CommunitySensorOut(BaseModel):
     created_at: datetime
     last_seen: datetime | None = None
     latest_reading: CommunitySensorReadingOut | None = None
+
+    @field_validator("created_at", "last_seen")
+    @classmethod
+    def _as_utc(cls, value: datetime | None) -> datetime | None:
+        # SQLite drops tzinfo; stored values are UTC.
+        return as_utc(value) if value is not None else None
 
 
 class CommunitySensorReadingSubmit(BaseModel):

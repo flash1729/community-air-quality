@@ -197,6 +197,18 @@ python -m app.simulator.virtual_sensors --api-url http://localhost:8000 --discon
 python -m app.simulator.virtual_sensors --api-url http://localhost:8000 --reconnect SENSOR_003
 ```
 
+### Community sensors in the deployed demo
+
+The Cloud Run deployment has no simulator process, and its SQLite file disappears when the instance scales to zero. The API is therefore deployed with `COMMUNITY_DEMO_MODE=true` (default `false`):
+
+- On startup the API seeds the ten Bengaluru sensors if they are missing. Their tokens are not saved anywhere.
+- When the community endpoints are read (`/community/sensors`, `/community/sensors/{id}`, `/community/sensors/{id}/readings`, `/community/map`), the API fills in one simulated reading per minute per active sensor since its last reading. A sensor's first read gets two hours of history; later reads add at most 60 rows. Values follow a smooth random walk per sensor.
+- A newly registered sensor gets a random location inside Bengaluru on the next read, so it appears on the map within one 5-second poll.
+- Simulated rows have `quality_status: "simulated"`. Readings posted by a device to `/community/sensors/readings` are still accepted and stored as `"accepted"`.
+- All data, including registered sensors, resets when the container restarts.
+
+Add it to the deploy command with `--set-env-vars CORS_ORIGINS=<vercel-url>,COMMUNITY_DEMO_MODE=true`, or on an existing service with `gcloud run services update community-air-api --region us-central1 --update-env-vars COMMUNITY_DEMO_MODE=true`. Leave it off locally: Docker Compose runs the real simulator.
+
 ### How to view the community page
 
 With the backend API and simulator running, start the frontend:
