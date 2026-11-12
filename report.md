@@ -284,8 +284,6 @@ frontend/src/
 │   ├── icon.svg            # Favicon
 │   ├── about/
 │   │   └── page.tsx        # About/methodology page
-│   ├── explore/
-│   │   └── page.tsx        # Search and map page
 │   ├── history/
 │   │   └── page.tsx        # Historical analytics page
 │   └── api/v1/[...path]/   # API proxy route
@@ -362,7 +360,7 @@ Severe:      bg-purple-900 text-purple-100
 ### Request Flow Example: Dashboard Overview
 
 ```
-1. User visits /explore?city=Delhi
+1. User visits /?city=Delhi
    ↓
 2. Frontend: GET /api/v1/locations?q=Delhi
    ↓

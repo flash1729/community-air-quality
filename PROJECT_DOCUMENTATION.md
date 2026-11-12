@@ -128,7 +128,7 @@ The system follows a containerized serverless model. The API is a Docker contain
 
 ### 3.8 Frontend
 
-Next.js App Router pages: `/` (dashboard), `/explore`, `/history`, `/community`, `/about` (under `frontend/src/app/`). Components include the AQI gauge, station map, trend and compare charts, and analytics panels (`frontend/src/components/`). A catch-all route handler `frontend/src/app/api/v1/[...path]/route.ts` proxies `/api/v1/*` to the backend, so the browser never calls OpenAQ, Open-Meteo or the backend directly.
+Next.js App Router pages: `/` (dashboard), `/history`, `/community`, `/about` (under `frontend/src/app/`). Components include the AQI gauge, station map, trend and compare charts, and analytics panels (`frontend/src/components/`). A catch-all route handler `frontend/src/app/api/v1/[...path]/route.ts` proxies `/api/v1/*` to the backend, so the browser never calls OpenAQ, Open-Meteo or the backend directly.
 
 ---
 

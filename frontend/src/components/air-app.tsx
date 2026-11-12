@@ -51,7 +51,7 @@ const FRESHNESS_COLOR = {
   unavailable: "var(--aqi-unknown)",
 } as const;
 
-type View = "overview" | "explore" | "history";
+type View = "overview" | "history";
 
 /** Sets the stagger position for the `.reveal` entrance. */
 function order(index: number): CSSProperties {
@@ -645,7 +645,7 @@ function DashboardBody({
         </>
       )}
 
-      {(view === "overview" || view === "explore") && (
+      {view === "overview" && (
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(18rem,0.8fr)]">
           <article className="card reveal overflow-hidden" style={order(1)}>
             <div className="p-5 sm:px-6">
@@ -676,7 +676,7 @@ function DashboardBody({
                 </label>
               </SectionHeading>
             </div>
-            <div className={`isolate border-y border-line ${view === "explore" ? "h-[34rem]" : "h-[24rem]"}`}>
+            <div className="isolate h-[24rem] border-y border-line">
               <StationMap
                 key={`${location.id}-${stationFilter}`}
                 stations={visibleStations}
@@ -697,11 +697,7 @@ function DashboardBody({
                 {visibleStations.length} of {overview.stations.length}
               </span>
             </div>
-            <ul
-              className={`-mr-2 mt-4 space-y-2.5 overflow-y-auto pr-2 ${
-                view === "explore" ? "lg:max-h-[36rem]" : "lg:max-h-[26rem]"
-              }`}
-            >
+            <ul className="-mr-2 mt-4 space-y-2.5 overflow-y-auto pr-2 lg:max-h-[26rem]">
               {visibleStations.length === 0 && (
                 <li className="rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
                   No stations match this filter.

@@ -463,7 +463,6 @@ text contrast remains readable.
 Keep navigation small:
 
 -   **Dashboard** --- current overview for the selected location.
--   **Explore** --- map and location search.
 -   **History** --- historical charts and comparisons.
 -   **About** --- data sources, AQI explanation, and limitations.
 
@@ -476,7 +475,7 @@ Suggested desktop layout:
 
 ``` text
 +------------------------------------------------------------+
-| LOGO       Dashboard   Explore   History          About     |
+| LOGO       Dashboard   History                    About     |
 +------------------------------------------------------------+
 | Search city or locality                         [Search]   |
 +------------------------------------------------------------+
